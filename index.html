@@ -1,0 +1,931 @@
+<title>From DNA to Chromosome</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column. Stepper, then a wide canvas stage, then a caption that changes with the step. Document is black and grey; blue and yellow appear only in the molecules. */
+:root{
+  --bg:#ffffff; --panel:#f4f4f3; --ink:#161616; --mute:#5c5c5c; --line:#d4d4d2; --dna:#9a9a97;
+  --blue:#1f5a9e; --blue2:#6fa0d6; --yel:#e3a800; --yel2:#f3cf63;
+  --serif:'Source Serif 4',Georgia,serif; --sans:'IBM Plex Sans',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121212; --panel:#1c1c1b; --ink:#ececea; --mute:#a0a09c; --line:#363634; --dna:#7b7b76;
+  --blue:#5a9be0; --blue2:#9cc3ee; --yel:#f0b82a; --yel2:#f6d77e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121212; --panel:#1c1c1b; --ink:#ececea; --mute:#a0a09c; --line:#363634; --dna:#7b7b76;
+  --blue:#5a9be0; --blue2:#9cc3ee; --yel:#f0b82a; --yel2:#f6d77e; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:920px;margin:0 auto}
+.kicker{font:600 11px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;border-top:4px solid var(--ink);padding-top:10px;margin:0 0 14px}
+h1{font:600 clamp(26px,4.6vw,38px)/1.12 var(--sans);letter-spacing:-.01em;margin:0 0 8px;text-wrap:balance}
+.sub{color:var(--mute);font:400 15px/1.5 var(--sans);margin:0 0 22px;max-width:66ch}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:12px}
+.steps button{font:500 13px/1.25 var(--sans);text-align:left;padding:10px 12px;border:1px solid var(--line);border-top:3px solid var(--line);background:var(--bg);color:var(--mute);cursor:pointer;border-radius:0}
+.steps button b{display:block;font-weight:600;color:inherit}
+.steps button.on{border-top-color:var(--ink);color:var(--ink);background:var(--panel)}
+.steps button.done{border-top-color:var(--blue);color:var(--ink)}
+.stage{background:var(--panel);border:1px solid var(--line)}
+canvas{display:block;width:100%;height:auto}
+.legend{display:flex;gap:6px 18px;flex-wrap:wrap;font:500 12.5px/1 var(--sans);color:var(--mute);padding:10px 14px;border-top:1px solid var(--line);min-height:38px;align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-2px}
+.legend span[hidden]{display:none}
+.cap{margin-top:18px;min-height:150px}
+.cap h2{font:600 17px/1.3 var(--sans);margin:0 0 6px}
+.cap p{margin:0 0 10px;max-width:66ch}
+.cap .eq{font:400 15px/1.5 var(--sans);color:var(--mute)}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.ctl button{font:500 13px/1 var(--sans);padding:11px 14px;border:1px solid var(--ink);background:var(--bg);color:var(--ink);cursor:pointer;border-radius:2px}
+.ctl button:hover:not(:disabled){background:var(--ink);color:var(--bg)}
+.ctl[hidden]{display:none}
+.ctl button.on{background:var(--ink);color:var(--bg)}
+.ctl button.go{background:var(--blue);border-color:var(--blue);color:#fff}
+.ctl button.go:hover:not(:disabled){filter:brightness(1.1);background:var(--blue);color:#fff}
+.ctl button:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--yel);outline-offset:2px}
+.cap mark{background:var(--yel2);color:#161616;padding:1px 4px}
+.note{font:400 12.5px/1.5 var(--sans);color:var(--mute);margin-top:22px;max-width:70ch}
+@media (max-width:560px){.steps button{font-size:12px;padding:8px}.cap{min-height:210px}}
+.prog{height:4px;background:var(--line,#ddd);border-radius:2px;margin:6px 0 14px;overflow:hidden}.prog i{display:block;height:100%;width:0;background:var(--blue);transition:width .6s}
+.bghead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.tg{display:inline-flex;align-items:center;gap:10px;font:600 13px var(--sans);cursor:pointer;color:var(--ink)}
+.tg input{position:absolute;opacity:0}
+.tg .sw{width:42px;height:24px;border-radius:12px;background:var(--line,#bbb);position:relative;transition:background .2s}
+.tg .sw:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+.tg input:checked+.sw{background:var(--blue)}.tg input:checked+.sw:after{left:21px}
+.tg input:focus-visible+.sw{outline:2px solid var(--yel);outline-offset:2px}
+#bgBody[hidden]{display:none}
+.bigslide{margin-top:36px;min-height:360px;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--panel);border:1px solid var(--line);padding:48px 8%}
+.bigslide p{margin:0;font:600 clamp(26px,4.6vw,44px)/1.28 var(--sans);letter-spacing:-.01em;text-wrap:balance;max-width:22em}
+.bigslide b{font-weight:700;border-bottom:4px solid var(--yel)}
+.subh{font:600 clamp(20px,3.2vw,26px)/1.2 var(--sans);margin:0}
+</style>
+
+<div class="wrap">
+<p class="kicker">Chromatin, one continuous animation</p>
+<div class="bghead"><h1>1. Background</h1><label class="tg"><input type="checkbox" id="bgTog" checked><span class="sw"></span><span id="bgTxt">On</span></label></div>
+<p class="sub">DNA is far too long to sit loose in the nucleus. It is packaged into nucleosomes, nucleosomes make chromatin, chromatin folds into the chromosome, and zooming back in leads to the DNA and its genes. Press Play and watch it run from start to finish.</p>
+
+<div id="bgBody">
+<div class="prog"><i id="progBar"></i></div>
+
+<div class="stage">
+ <canvas id="cv" width="1800" height="1040" role="img" aria-label="Animation: a DNA double helix wraps around eight histone proteins to form a nucleosome"></canvas>
+ <div class="legend" id="legend">
+  <span data-st="0"><i style="background:var(--blue)"></i>DNA strand</span>
+  <span data-st="0"><i style="background:var(--ink)"></i>Second DNA strand</span>
+  <span data-st="1" hidden><i style="background:var(--yel)"></i>H3</span>
+  <span data-st="1" hidden><i style="background:var(--yel2)"></i>H4</span>
+  <span data-st="1" hidden><i style="background:var(--blue)"></i>H2A</span>
+  <span data-st="1" hidden><i style="background:var(--blue2)"></i>H2B</span>
+  <span data-st="6" hidden><i style="background:var(--blue2)"></i>A</span>
+  <span data-st="6" hidden><i style="background:var(--blue)"></i>T</span>
+  <span data-st="6" hidden><i style="background:var(--yel)"></i>G</span>
+  <span data-st="6" hidden><i style="background:var(--yel2)"></i>C</span>
+  <span data-st="8" hidden><i style="background:var(--ink);border:2px solid var(--blue);border-radius:3px"></i>Transcription proteins</span>
+  <span data-st="8" hidden><i style="background:var(--yel2)"></i>Accessible region</span>
+  <span data-st="3" hidden><i style="background:var(--mute);opacity:.5"></i>Associated proteins</span>
+ </div>
+</div>
+
+<div class="cap" id="cap" aria-live="polite"></div>
+<div class="ctl" id="accUI" hidden>
+ <label for="accR" style="font:500 13px/1 var(--sans);align-self:center;color:var(--mute)">Open the region</label>
+ <input id="accR" type="range" min="0" max="100" value="0" style="flex:1;min-width:180px;accent-color:var(--blue)">
+ <button id="accPlay">Play again</button>
+</div>
+<div class="ctl" id="viewUI" hidden>
+ <span style="font:500 13px/1 var(--sans);align-self:center;color:var(--mute)">View:</span>
+ <button id="vSide" class="on">Side view</button><button id="vTop">Top view</button>
+</div>
+<div class="ctl">
+ <button id="playBtn" class="go">Pause</button>
+ <button id="restart">Restart</button>
+</div>
+<p class="note">Schematic view from above, not to scale. DNA is drawn much shorter than it is in a cell.</p>
+</div>
+<div class="bghead" style="margin-top:36px;border-top:1px solid var(--line);padding-top:22px"><h1>2. MLL3/4</h1><label class="tg"><input type="checkbox" id="mllTog"><span class="sw"></span><span id="mllTxt">Off</span></label></div>
+<div id="mllBody" hidden><iframe id="h3Frame" title="MLL3/MLL4 binding the H3 tail" data-src="h3.html?e=50" style="width:100%;height:700px;border:0;background:transparent" loading="lazy"></iframe></div>
+<div class="bghead" style="margin-top:36px;border-top:1px solid var(--line);padding-top:22px"><h2 class="subh">Gene is activated</h2><label class="tg"><input type="checkbox" id="actTog"><span class="sw"></span><span id="actTxt">Off</span></label></div>
+<div id="actBody" hidden><iframe id="actFrame" title="Gene X is activated" data-src="h3.html?s=50" style="width:100%;height:700px;border:0;background:transparent" loading="lazy"></iframe></div>
+<div class="bghead" style="margin-top:36px;border-top:1px solid var(--line);padding-top:22px"><h2 class="subh">Gene is repressed</h2><label class="tg"><input type="checkbox" id="repTog"><span class="sw"></span><span id="repTxt">Off</span></label></div>
+<div id="repBody" hidden><iframe id="repFrame" title="Gene X is repressed" data-src="rep.html" style="width:100%;height:700px;border:0;background:transparent" loading="lazy"></iframe></div>
+<section class="bigslide" aria-label="Key point"><p><b>Activators</b> and <b>repressors</b> regulate transcription, but MLL3/MLL4 adding <b>H3K4me1</b> does not automatically determine which one binds.</p></section>
+<div class="bghead" style="margin-top:44px;border-top:1px solid var(--line);padding-top:22px"><h1>3. Research proposal</h1><label class="tg"><input type="checkbox" id="rpTog"><span class="sw"></span><span id="rpTxt">Off</span></label></div>
+<div id="rpBody" hidden><iframe id="rpFrame" title="Normal and MLL3/4 KO cells" data-src="cells.html" style="width:100%;height:1420px;border:0;background:transparent" loading="lazy"></iframe></div>
+<div class="bghead" style="margin-top:44px;border-top:1px solid var(--line);padding-top:22px"><h1>4. Possible results</h1><label class="tg"><input type="checkbox" id="prTog"><span class="sw"></span><span id="prTxt">Off</span></label></div>
+<div id="prBody" hidden><iframe id="prFrame" title="Possible results" data-src="results.html" style="width:100%;height:620px;border:0;background:transparent" loading="lazy"></iframe></div>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const cv=$('cv'),mctx=cv.getContext('2d'),K=cv.width/900;
+const oc=document.createElement('canvas');oc.width=cv.width;oc.height=cv.height;const octx=oc.getContext('2d');let ctx=octx;
+const lc=document.createElement('canvas');lc.width=cv.width;lc.height=cv.height;const lctx=lc.getContext('2d');
+const CX=450,CY=225;
+function col(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function clamp(x,a,b){return Math.max(a,Math.min(b,x))}
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+function lerp(a,b,t){return a+(b-a)*t}
+
+/* ---------- geometry: target (wrapped) path and straight path, same arclength ---------- */
+const R0=80,dR=18,TURNS=1.65,TH=TURNS*2*Math.PI,LINK=230,TH0=30*Math.PI/180,N=900;
+function wrapPos(f){const th=TH0-TH*f,r=R0+dR*f;return [CX+r*Math.cos(th),CY+r*Math.sin(th)]}
+const poly=[];
+(function(){
+  const a=wrapPos(0),b=wrapPos(1);
+  const t0=[Math.sin(TH0),-Math.cos(TH0)];
+  const th1=TH0-TH,t1=[Math.sin(th1),-Math.cos(th1)];
+  for(let i=0;i<=40;i++){const f=i/40;poly.push([a[0]-t0[0]*LINK*(1-f),a[1]-t0[1]*LINK*(1-f)])}
+  for(let i=1;i<=400;i++)poly.push(wrapPos(i/400));
+  for(let i=1;i<=40;i++){const f=i/40;poly.push([b[0]+t1[0]*LINK*f,b[1]+t1[1]*LINK*f])}
+})();
+const cum=[0];for(let i=1;i<poly.length;i++)cum.push(cum[i-1]+Math.hypot(poly[i][0]-poly[i-1][0],poly[i][1]-poly[i-1][1]));
+const L=cum[cum.length-1];
+const T=[],Sx=[],frac=[];
+(function(){let j=1;for(let i=0;i<N;i++){const s=L*i/(N-1);while(j<cum.length-1&&cum[j]<s)j++;
+  const q=(s-cum[j-1])/Math.max(1e-6,cum[j]-cum[j-1]);
+  T.push([lerp(poly[j-1][0],poly[j][0],q),lerp(poly[j-1][1],poly[j][1],q)]);
+  Sx.push([CX-L/2+s,CY]);frac.push(i/(N-1))}})();
+const wrapStart=LINK/L,wrapEnd=(L-LINK)/L; // fraction of DNA that touches the histones (about 147 bp)
+
+/* ---------- histones ---------- */
+const HI=[['H3','--yel'],['H4','--yel2'],['H2A','--blue'],['H2B','--blue2'],['H3','--yel'],['H4','--yel2'],['H2A','--blue'],['H2B','--blue2']];
+const HR=50,BR=19;
+const HP=HI.map((h,i)=>{const a=-Math.PI/2+i*Math.PI/4+Math.PI/8;return [CX+HR*Math.cos(a),CY+HR*Math.sin(a)]});
+const HS=[[150,90],[260,60],[640,60],[760,95],[130,420],[290,452],[620,452],[770,420]];
+
+/* ---------- tweened values ---------- */
+const V={oct:{v:0},e:{v:0},lab:{v:0},lab0:{v:1},chain:{v:0},lab4:{v:0},fib:{v:0},coil:{v:0},labF:{v:0},chrm:{v:0},cond:{v:0},labC:{v:0},slide:{v:0},zoom:{v:0},labZ:{v:0},blank:{v:0},txt:{v:0},sc9:{v:0},lab9:{v:0},acc:{v:0},zm:{v:0},zl:{v:0},z2:{v:0},zl2:{v:0},pan:{v:0},zl3:{v:0},sw:{v:0},view:{v:1}};
+let now0=performance.now();
+function setTween(k,target,delay,dur){const o=V[k];o.from=o.v;o.to=target;o.t0=performance.now()+delay*1000;o.d=dur*1000;}
+function updTween(){const t=performance.now();for(const k in V){const o=V[k];if(o.d==null)continue;const q=clamp((t-o.t0)/o.d,0,1);o.v=lerp(o.from,o.to,ease(q));if(q>=1)o.d=null}}
+const DUR={oct:1.2,e:3.4,lab:0.9,chain:2.0,lab4:0.9,fib:1.0,coil:2.8,labF:0.9,chrm:1.0,cond:4.2,labC:0.9,slide:1.8,zoom:2.2,labZ:0.9,blank:1.2,txt:5.5,sc9:1.0,lab9:0.8,acc:0.1,zm:1.6,zl:2.4,z2:1.4,zl2:2.4,pan:1.6,zl3:2.6,sw:3.4};
+let stage=0,autoT=null;
+function stateFor(st){return {oct:st>=1?1:0,e:st>=1?1:0,lab:st===2?1:0,chain:st>=3?1:0,lab4:st===3?1:0,fib:st>=4?1:0,coil:st>=4?1:0,labF:st===4?1:0,chrm:st>=5?1:0,cond:st>=5?1:0,labC:st===5?1:0,slide:st>=6?1:0,zoom:st===6?1:0,labZ:st===6?1:0,blank:st>=7?1:0,txt:st===7?1:0,sc9:st>=8?1:0,lab9:st>=8?1:0,acc:st>=8?1:0,zm:st>=8?1:0,zl:st>=8?1:0,z2:st>=9?1:0,zl2:st>=9?1:0,pan:st>=10?1:0,zl3:st>=10?1:0,sw:st>=10?1:0}}
+function goStage(i,replay){
+  const prev=stage;stage=clamp(i,0,10);
+  const tgt=stateFor(stage);
+  const up=(stage>prev||replay);
+  const order=up?['oct','e','lab','chain','lab4','fib','coil','labF','chrm','cond','labC','slide','zoom','labZ','blank','txt','sc9','zm','zl','z2','zl2','pan','zl3','sw']:['sw','zl3','pan','zl2','z2','zl','zm','sc9','txt','blank','labZ','zoom','slide','labC','cond','chrm','labF','coil','fib','lab4','chain','lab','e','oct'];
+  if(replay){
+    const base=stateFor(stage-1);
+    for(const k in base){V[k].v=base[k];V[k].d=null}
+    V.lab0.v=stage-1<=0?1:0;
+  }
+  let delay=0;
+  order.forEach(k=>{const cur=V[k].v;if(Math.abs(cur-tgt[k])>0.001){setTween(k,tgt[k],delay,DUR[k]);delay+=DUR[k]+(k==='oct'?0.2:0.1)}});
+  setTween('lab0',stage===0?1:0,stage===0?delay:0,0.6);
+  ui();
+  return delay;
+}
+const CAP=[
+ ['The DNA double helix',
+  '<p>DNA is made of two strands that wind around each other, joined together by base pairs. Seen from above it is a very long, thin thread.</p>'],
+ ['Histones: the spools',
+  '<p><b>Histones are proteins around which DNA wraps.</b> Imagine DNA as a long thread and histones as small spools. The thread winds around the spools, allowing it to be packaged and organized.</p><p class="eq">The main histones in the core particle are H2A, H2B, H3 and H4. Two copies of each form a histone octamer, so eight proteins in all.</p>'],
+ ['The nucleosome',
+  '<p>About 147 base pairs of DNA wrap around the histone octamer, about 1.65 turns. <mark>This DNA–histone structure is called a nucleosome.</mark></p><p class="eq">The stretches of DNA that leave the core on either side are called linker DNA.</p>'],
+ ['Chromatin',
+  '<p>Nucleosomes do not sit alone. Many of them sit along the same DNA, like a string of beads.</p><p class="eq">The string = DNA.<br>Each bead = a nucleosome.</p><p><mark>The entire string of beads, along with associated proteins, is called chromatin.</mark></p>'],
+ ['Chromatin fibre',
+  '<p>The string of nucleosomes does not stay stretched out. It coils and stacks on itself, forming a thicker, more compact <mark>chromatin fibre</mark>.</p><p class="eq">This packs the DNA into a much shorter length. The drawing is the textbook model; in living cells the fibre is more irregular and changes with gene activity.</p>'],
+ ['Chromosome',
+  '<p>The fibre folds into loops, and the loops are packed tighter and tighter. <mark>Chromatin fibres fold and condense into a chromosome.</mark> Before a cell divides, each chromosome is made of two identical sister chromatids joined at the centromere.</p><p class="eq">Between divisions chromatin is much less condensed, and that is the state in which genes are read. This is where histone marks, the subject of the proposal, come in.</p>'],
+ ['Back to the DNA',
+  '<p>Zoom into any part of a chromosome and the same levels appear in reverse: chromatin fibre, nucleosomes, and finally the DNA double helix. <mark>Along the same DNA are many genes, one after another.</mark></p><p class="eq">Each gene is a stretch of DNA that carries the instructions for an RNA or a protein. Whether a gene can be read depends partly on how its chromatin is packaged, and histone marks, including the ones MLL3 and MLL4 deposit, are part of that control.</p>'],
+ ['Access to a gene',
+  '<p>Along that DNA are many genes, each containing information that the cell may use to make an RNA.</p><p><mark>But the cell does not use every gene at the same time.</mark></p><p><mark>The cell needs access to a particular gene.</mark></p><p class="eq">Whether the cell can reach a gene depends partly on how its chromatin is packaged, which is where histone marks come in.</p>'],
+ ['A small region becomes accessible',
+  '<p><mark>DNA can loosen or unwrap locally, allowing transcription proteins to access the relevant DNA sequences.</mark></p><p>Nucleosomes may also be repositioned or temporarily removed.</p><p class="eq">Zooming into one sister chromatid shows the chromatin it is made of: nucleosomes packed closely together.</p>'],
+ ['Zooming into the chromatin',
+  '<p>Zoom in again and the chromatin resolves into individual nucleosomes, each with DNA wrapped around a histone core, joined by DNA between them.</p>'],
+ ['One nucleosome',
+  '<p>Zoom in once more to a single nucleosome: about 147 base pairs of DNA wrapped around a histone octamer.</p><p class="eq">The side view shows the DNA winding about 1.65 turns around the histone core, like thread around a spool. Use the buttons to switch between the side and top views.</p>']
+];
+function ui(){
+  $('progBar').style.width=((stage+1)/11*100)+'%';
+  $('cap').innerHTML='<h2>'+CAP[stage][0]+'</h2>'+CAP[stage][1];
+  $('viewUI').hidden=stage!==10;
+  $('accUI').hidden=true;
+  document.querySelectorAll('#legend span[data-st]').forEach(s=>{const st=+s.dataset.st;const VIS={0:q=>q===0,1:q=>(q>=1&&q<=2)||q===4,3:q=>q===3,6:q=>q===6,7:q=>q===7,8:q=>false};s.hidden=!VIS[st](stage)});
+}
+
+/* ---------- drawing ---------- */
+const PITCH=34,AMP0=11,AMP1=5.5;
+let P=new Array(N);
+function label(txt,x,y,o){o=o||{};ctx.font=(o.w||500)+' '+(o.s||13)+'px IBM Plex Sans, Arial, sans-serif';ctx.fillStyle=o.c||col('--ink');ctx.textAlign=o.a||'left';ctx.fillText(txt,x,y)}
+function leader(x1,y1,x2,y2,c){ctx.strokeStyle=c;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.fillStyle=c;ctx.beginPath();ctx.arc(x2,y2,2.5,0,6.283);ctx.fill()}
+
+function draw(ts){
+  updTween();ctx=octx;
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),dna=col('--dna'),bg=col('--panel'),yel=col('--yel');
+  const e=V.e.v,oct=V.oct.v,lab=V.lab.v,lab0=V.lab0.v,phase=ts/1000*1.3;
+  ctx.setTransform(K,0,0,K,0,0);ctx.clearRect(0,0,900,520);
+  ctx.textBaseline='alphabetic';
+  // histones (under the DNA)
+  if(oct>0.001){
+    const q=ease(clamp(oct,0,1));
+    for(let i=0;i<8;i++){
+      const x=lerp(HS[i][0],HP[i][0],q),y=lerp(HS[i][1],HP[i][1],q);
+      const c=col(HI[i][1]);ctx.globalAlpha=clamp(oct*2.2,0,1);
+      const g=ctx.createRadialGradient(x-6,y-7,2,x,y,BR);g.addColorStop(0,'#ffffffcc');g.addColorStop(.35,c);g.addColorStop(1,c);
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,BR,0,6.283);ctx.fill();
+      ctx.strokeStyle=ink;ctx.lineWidth=1.2;ctx.globalAlpha=clamp(oct*2.2,0,1)*0.55;ctx.stroke();
+      ctx.globalAlpha=clamp(oct*2.2,0,1);
+      ctx.font='600 12px IBM Plex Sans, Arial';ctx.textAlign='center';ctx.fillStyle=(HI[i][0]==='H3'||HI[i][0]==='H4')?'#161616':(HI[i][0]==='H2A'?'#ffffff':'#0e2540');ctx.fillText(HI[i][0],x,y+4);
+    }
+    ctx.globalAlpha=1;
+  }
+  // DNA path: each point wraps in turn, start first
+  const k=0.9;
+  for(let i=0;i<N;i++){
+    const u=ease(clamp(e*(1+k)-frac[i]*k,0,1));
+    P[i]=[lerp(Sx[i][0],T[i][0],u),lerp(Sx[i][1],T[i][1],u),u];
+  }
+  const s1=[],s2=[],dep=[],A=[];
+  for(let i=0;i<N;i++){
+    const a=P[Math.max(0,i-1)],b=P[Math.min(N-1,i+1)];
+    let tx=b[0]-a[0],ty=b[1]-a[1];const m=Math.hypot(tx,ty)||1;tx/=m;ty/=m;
+    const amp=lerp(AMP0,AMP1,P[i][2]),th=phase+(L*frac[i])*2*Math.PI/PITCH,off=amp*Math.sin(th);
+    s1.push([P[i][0]-ty*off,P[i][1]+tx*off]);s2.push([P[i][0]+ty*off,P[i][1]-tx*off]);dep.push(Math.cos(th));
+  }
+  // pass 0: back strands, rungs, pass 1: front strands
+  function strand(arr,sign,color,pass){
+    for(let i=1;i<N;i++){
+      const d=sign*dep[i];if((d<0)!==(pass===0))continue;
+      ctx.strokeStyle=color;ctx.lineWidth=3.4+1.5*d;ctx.globalAlpha=pass===0?0.75:1;
+      ctx.beginPath();ctx.moveTo(arr[i-1][0],arr[i-1][1]);ctx.lineTo(arr[i][0],arr[i][1]);ctx.stroke();
+    }ctx.globalAlpha=1;
+  }
+  ctx.lineCap='round';
+  strand(s1,1,blue,0);strand(s2,-1,ink,0);
+  ctx.strokeStyle=dna;ctx.lineWidth=2;
+  for(let i=4;i<N-4;i+=7){ctx.globalAlpha=0.9*(1-0.3*P[i][2]);ctx.beginPath();ctx.moveTo(s1[i][0],s1[i][1]);ctx.lineTo(s2[i][0],s2[i][1]);ctx.stroke()}
+  ctx.globalAlpha=1;
+  strand(s1,1,blue,1);strand(s2,-1,ink,1);
+  // soften the cut-off ends
+  if(e<0.5){
+    const g1=ctx.createLinearGradient(0,0,70,0);g1.addColorStop(0,bg);g1.addColorStop(1,bg+'00');
+    ctx.fillStyle=g1;ctx.fillRect(0,0,70,520);
+    const g2=ctx.createLinearGradient(830,0,900,0);g2.addColorStop(0,bg+'00');g2.addColorStop(1,bg);
+    ctx.fillStyle=g2;ctx.fillRect(830,0,70,520);
+  }
+  // stage-1 labels (DNA alone)
+  if(lab0>0.01){
+    ctx.globalAlpha=lab0;
+    leader(250,150,250,216,mute);label('Sugar–phosphate backbone',250,140,{a:'center',c:ink});
+    leader(430,330,430,237,mute);label('Base pairs hold the two strands together',430,348,{a:'center',c:ink});
+    label('DNA double helix',450,60,{a:'center',s:20,w:600,c:ink});
+    label('continues in both directions',450,86,{a:'center',s:12.5,c:mute});
+    ctx.globalAlpha=1;
+  }
+  // histone octamer label (wrapping step)
+  const octLab=clamp(oct*1.5-0.5,0,1)*(1-lab0)*(1-lab*0)*(lab<1?1:1);
+  if(octLab>0.01&&lab<0.99&&stage===1){
+    ctx.globalAlpha=octLab*(1-lab);
+    label('Histone octamer',CX+215,CY-100,{c:ink,s:14,w:600});
+    label('2 × H2A, H2B, H3, H4',CX+215,CY-82,{c:mute,s:12.5});
+    leader(CX+210,CY-96,CX+HR+BR-6,CY-20,mute);
+    ctx.globalAlpha=1;
+  }
+  // nucleosome labels
+  if(lab>0.01){
+    ctx.globalAlpha=lab;
+    const pul=0.5+0.5*Math.sin(ts/450);
+    ctx.fillStyle=yel;ctx.globalAlpha=lab*(0.07+0.07*pul);ctx.beginPath();ctx.arc(CX,CY,122,0,6.283);ctx.fill();ctx.globalAlpha=lab;
+    ctx.setLineDash([6,5]);ctx.strokeStyle=yel;ctx.lineWidth=2.5+1.5*pul;ctx.beginPath();ctx.arc(CX,CY,122,0,6.283);ctx.stroke();ctx.setLineDash([]);
+    // the defining sentence, highlighted
+    const sen='This DNA–histone structure is called a nucleosome.';
+    ctx.font='600 19px IBM Plex Sans, Arial, sans-serif';const sw=ctx.measureText(sen).width;
+    ctx.fillStyle=col('--yel2');ctx.fillRect(CX-sw/2-12,30,sw+24,34);
+    label(sen,CX,53,{a:'center',s:19,w:600,c:'#161616'});
+    // parts that make it up
+    const dp=T[Math.round(N*0.47)];
+    leader(CX-196,CY-30,dp[0]-2,dp[1],mute);label('DNA',CX-202,CY-26,{a:'right',s:14,w:600,c:blue});
+    leader(CX-196,CY+30,HP[5][0]-BR+4,HP[5][1],mute);label('Histone octamer',CX-202,CY+34,{a:'right',s:14,w:600,c:ink});
+
+    label('Nucleosome',CX+140,CY-70,{s:26,w:600,c:ink});
+    label('≈147 bp of DNA, ≈1.65 turns',CX+140,CY-48,{s:13,c:mute});
+    label('around a histone octamer',CX+140,CY-31,{s:13,c:mute});
+    leader(CX+136,CY-64,CX+96,CY-84,mute);
+    label('Linker DNA',T[Math.round(N*0.03)][0]-14,T[Math.round(N*0.03)][1]+4,{a:'right',c:ink,s:13});
+    label('Linker DNA',T[Math.round(N*0.97)][0]+14,T[Math.round(N*0.97)][1]+4,{a:'left',c:ink,s:13});
+    ctx.globalAlpha=1;
+  }
+  ctx=mctx;ctx.setTransform(K,0,0,K,0,0);ctx.clearRect(0,0,900,520);
+  const ch=V.chain.v;
+  if(ch<0.999){
+    const q=ease(clamp(ch*1.5,0,1));
+    ctx.save();ctx.globalAlpha=1-clamp(ch*1.8,0,1);ctx.translate(CX,CY);const sc=lerp(1,0.42,q);ctx.scale(sc,sc);ctx.translate(-CX,-CY);
+    ctx.drawImage(oc,0,0,900,520);ctx.restore();
+  }
+  const fib=V.fib.v,chrm=V.chrm.v;
+  if(ch>0.001&&fib<0.999)layer(()=>drawChain(ch,V.lab4.v,phase),1-fib,lerp(1,0.5,ease(fib)));
+  if(fib>0.001&&chrm<0.999)layer(()=>drawFibre(V.coil.v,V.labF.v,phase),fib*(1-chrm),1);
+  const sl=ease(V.slide.v);
+  if(chrm>0.001)layer(()=>drawChrom(V.cond.v,V.labC.v,phase),chrm*(1-clamp(V.blank.v,0,1)),lerp(0.85,1,chrm)*lerp(1,0.78,sl),-215*sl);
+  if(V.zoom.v>0.001)layer(()=>drawZoom(V.zoom.v,V.labZ.v),1,1);
+  if(V.txt.v>0.001)layer(()=>drawText(V.txt.v),1,1);
+  if(V.sc9.v>0.001){const zmE=ease(V.zm.v),k=ease(V.z2.v),m=ease(V.pan.v),S=lerp(1,0.56,m),sc1=1.25-0.25*zmE-0.42*k,dx1=-200*zmE-135*k;layer(()=>drawChrom(1,0,phase),V.sc9.v,S*sc1,S*CX+S*dx1-CX);if(V.zl.v>0.001)layer(()=>drawLens(ease(V.zl.v),k,ease(V.zl2.v),m,ease(V.zl3.v),phase),1,1)}
+  if(stage===8&&document.activeElement!==$('accR'))$('accR').value=Math.round(clamp(V.acc.v,0,1)*100);
+  requestAnimationFrame(draw);
+}
+
+/* ---------- chromatin: beads on a string ---------- */
+function yAt(x){return CY+16*Math.sin((x-CX)/120)}
+const BX=[150,300,450,600,750];
+function drawChain(q,l4,phase){
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),dna=col('--dna'),pan=col('--panel'),bg=col('--bg'),yel=col('--yel');
+  ctx.lineCap='round';ctx.textBaseline='alphabetic';
+  const hw=ease(clamp(q*1.4,0,1))*480;
+  const pts=[];
+  for(let x=-10;x<=910;x+=3){
+    if(Math.abs(x-CX)>hw)continue;
+    const y=yAt(x),dy=16/120*Math.cos((x-CX)/120),nn=Math.hypot(dy,1),nx=-dy/nn,ny=1/nn;
+    const th=phase+x*2*Math.PI/22,off=5*Math.sin(th);
+    pts.push({a:[x+nx*off,y+ny*off],b:[x-nx*off,y-ny*off],d:Math.cos(th)});
+  }
+  function pass(front){
+    for(const key of ['a','b']){
+      const sg=key==='a'?1:-1;
+      for(let i=1;i<pts.length;i++){
+        const d=sg*pts[i].d;if((d<0)===front)continue;
+        ctx.strokeStyle=key==='a'?blue:ink;ctx.lineWidth=3+1.2*d;ctx.globalAlpha=front?1:0.75;
+        ctx.beginPath();ctx.moveTo(pts[i-1][key][0],pts[i-1][key][1]);ctx.lineTo(pts[i][key][0],pts[i][key][1]);ctx.stroke();
+      }
+    }ctx.globalAlpha=1;
+  }
+  pass(false);
+  ctx.strokeStyle=dna;ctx.lineWidth=1.5;
+  for(let i=2;i<pts.length-1;i+=4){ctx.beginPath();ctx.moveTo(pts[i].a[0],pts[i].a[1]);ctx.lineTo(pts[i].b[0],pts[i].b[1]);ctx.stroke()}
+  pass(true);
+  // associated proteins
+  [[225,1,0.0],[300+75,1,0.3],[525,-1,0.6],[675,-1,0.9],[185+10,1,0.5],[560+60,-1,0.2]].forEach((b,n)=>{
+    if(n>3&&false)return;
+    const x=b[0],y=yAt(x)+b[1]*20+Math.sin(phase*0.7+n*1.7)*1.5;
+    ctx.globalAlpha=l4*clamp(q*2-0.6,0,1);
+    ctx.strokeStyle=mute;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x,yAt(x)+b[1]*6);ctx.lineTo(x,y-b[1]*5);ctx.stroke();
+    ctx.fillStyle=mute;ctx.globalAlpha*=0.45;ctx.beginPath();ctx.ellipse(x,y,10,7.5,0.4*n,0,6.283);ctx.fill();
+    ctx.globalAlpha=l4*clamp(q*2-0.6,0,1);ctx.strokeStyle=mute;ctx.beginPath();ctx.ellipse(x,y,10,7.5,0.4*n,0,6.283);ctx.stroke();
+  });
+  ctx.globalAlpha=1;
+  // beads
+  BX.forEach((bx,j)=>{
+    const p=ease(clamp(q*2.2-Math.abs(j-2)*0.45,0,1));if(p<=0.001)return;
+    const by=yAt(bx);
+    ctx.save();ctx.translate(bx,by);ctx.scale(0.55+0.45*p,0.55+0.45*p);ctx.globalAlpha=p;
+    ctx.fillStyle=pan;ctx.beginPath();ctx.arc(0,0,43,0,6.283);ctx.fill();
+    ctx.lineWidth=6;ctx.strokeStyle=blue;ctx.beginPath();ctx.arc(0,0,35,0,6.283);ctx.stroke();
+    ctx.strokeStyle=ink;ctx.beginPath();ctx.arc(0,0,41,0,6.283);ctx.stroke();
+    ctx.lineWidth=1.5;ctx.strokeStyle=pan;ctx.setLineDash([3,6]);ctx.beginPath();ctx.arc(0,0,38,0,6.283);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=bg;ctx.strokeStyle=dna;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,29,0,6.283);ctx.fill();ctx.stroke();
+    for(let i=0;i<8;i++){const a=-Math.PI/2+i*Math.PI/4+Math.PI/8;ctx.fillStyle=col(HI[i][1]);ctx.beginPath();ctx.arc(17*Math.cos(a),17*Math.sin(a),6.2,0,6.283);ctx.fill();ctx.strokeStyle=ink;ctx.lineWidth=0.8;ctx.globalAlpha=p*0.5;ctx.stroke();ctx.globalAlpha=p}
+    ctx.restore();
+  });
+  ctx.globalAlpha=1;
+  // soft ends
+  const g1=ctx.createLinearGradient(0,0,70,0);g1.addColorStop(0,pan);g1.addColorStop(1,pan+'00');ctx.fillStyle=g1;ctx.fillRect(0,0,70,520);
+  const g2=ctx.createLinearGradient(830,0,900,0);g2.addColorStop(0,pan+'00');g2.addColorStop(1,pan);ctx.fillStyle=g2;ctx.fillRect(830,0,70,520);
+  // labels
+  if(l4>0.01){
+    ctx.globalAlpha=l4;
+    const sen='The entire string of beads, along with associated proteins, is called chromatin.';
+    ctx.font='600 17px IBM Plex Sans, Arial, sans-serif';const sw=ctx.measureText(sen).width;
+    ctx.fillStyle=col('--yel2');ctx.fillRect(CX-sw/2-12,30,sw+24,34);
+    label(sen,CX,52,{a:'center',s:17,w:600,c:'#161616'});
+    label('String = DNA',225,128,{a:'center',s:15,w:600,c:blue});leader(225,134,225,yAt(225)-8,mute);
+    label('Bead = nucleosome',450,128,{a:'center',s:15,w:600,c:ink});leader(450,134,450,CY-47,mute);
+    label('Associated proteins',675,128,{a:'center',s:15,w:600,c:mute});leader(675,134,675,yAt(675)-30,mute);
+    ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(100,318);ctx.lineTo(100,328);ctx.lineTo(800,328);ctx.lineTo(800,318);ctx.stroke();
+    label('Chromatin',CX,366,{a:'center',s:28,w:600,c:ink});
+    label('the string of beads (DNA and nucleosomes) with its associated proteins',CX,390,{a:'center',s:13,c:mute});
+    ctx.globalAlpha=1;
+  }
+}
+
+
+function layer(fn,al,sc,dx){dx=dx||0;
+  ctx=lctx;ctx.setTransform(K,0,0,K,0,0);ctx.clearRect(0,0,900,520);fn();
+  ctx=mctx;ctx.save();ctx.globalAlpha=clamp(al,0,1);ctx.translate(CX+dx,CY);ctx.scale(sc,sc);ctx.translate(-CX,-CY);ctx.drawImage(lc,0,0,900,520);ctx.restore();
+}
+function bead(x,y,sc){
+  const ink=col('--ink'),blue=col('--blue'),dna=col('--dna'),pan=col('--panel'),bg=col('--bg');
+  ctx.save();ctx.translate(x,y);ctx.scale(sc,sc);
+  ctx.fillStyle=pan;ctx.beginPath();ctx.arc(0,0,43,0,6.283);ctx.fill();
+  ctx.lineWidth=6;ctx.strokeStyle=blue;ctx.beginPath();ctx.arc(0,0,35,0,6.283);ctx.stroke();
+  ctx.strokeStyle=ink;ctx.beginPath();ctx.arc(0,0,41,0,6.283);ctx.stroke();
+  ctx.fillStyle=bg;ctx.strokeStyle=dna;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,29,0,6.283);ctx.fill();ctx.stroke();
+  for(let i=0;i<8;i++){const a=-Math.PI/2+i*Math.PI/4+Math.PI/8;ctx.fillStyle=col(HI[i][1]);ctx.beginPath();ctx.arc(17*Math.cos(a),17*Math.sin(a),6.2,0,6.283);ctx.fill()}
+  ctx.restore();
+}
+function banner(sen,size){
+  ctx.font='600 '+size+'px IBM Plex Sans, Arial, sans-serif';const sw=ctx.measureText(sen).width;
+  ctx.fillStyle=col('--yel2');ctx.fillRect(CX-sw/2-12,30,sw+24,34);
+  label(sen,CX,52,{a:'center',s:size,w:600,c:'#161616'});
+}
+/* ---------- chromatin fibre ---------- */
+const FN=11,FS=75,FSC0=0.5,FSC1=0.6;
+function fibStart(i){const x=CX+(i-5)*FS;return [x,CY+8*Math.sin((x-CX)/60)]}
+function fibEnd(i){return [CX+(i-5)*32,CY+(i%2?20:-20)]}
+function drawFibre(coil,lf,phase){
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),yel=col('--yel'),pan=col('--panel'),bg=col('--bg');
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.textBaseline='alphabetic';
+  const P=[];
+  for(let i=0;i<FN;i++){const fr=i/(FN-1),u=ease(clamp(coil*1.9-fr*0.9,0,1)),a=fibStart(i),b=fibEnd(i);P.push([lerp(a[0],b[0],u),lerp(a[1],b[1],u),lerp(FSC0,FSC1,u)])}
+  const q=ease(clamp(coil,0,1)),tl=lerp(P[0][0]+10,26,q),tr=lerp(900-P[FN-1][0]+10,26,q);
+  const path=[[P[0][0]-tl,P[0][1]],...P,[P[FN-1][0]+tr,P[FN-1][1]]];
+  function stroke(w,c,dash){ctx.lineWidth=w;ctx.strokeStyle=c;ctx.setLineDash(dash||[]);ctx.beginPath();path.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();ctx.setLineDash([])}
+  stroke(7,ink);stroke(3.4,blue);stroke(1.2,bg,[3,7]);
+  for(let i=0;i<FN;i+=2)bead(P[i][0],P[i][1],P[i][2]);
+  for(let i=1;i<FN;i+=2)bead(P[i][0],P[i][1],P[i][2]);
+  const g1=ctx.createLinearGradient(0,0,70,0);g1.addColorStop(0,pan);g1.addColorStop(1,pan+'00');ctx.fillStyle=g1;ctx.fillRect(0,0,70,520);
+  const g2=ctx.createLinearGradient(830,0,900,0);g2.addColorStop(0,pan+'00');g2.addColorStop(1,pan);ctx.fillStyle=g2;ctx.fillRect(830,0,70,520);
+  if(lf>0.01){
+    ctx.globalAlpha=lf;
+    const pul=0.5+0.5*Math.sin(performance.now()/450);
+    ctx.setLineDash([6,5]);ctx.strokeStyle=yel;ctx.lineWidth=2+1.2*pul;ctx.beginPath();ctx.roundRect(CX-5*32-40,CY-62,10*32+80,124,62);ctx.stroke();ctx.setLineDash([]);
+    banner('The string of nucleosomes coils into a thicker, compact chromatin fibre.',17);
+    label('Chromatin fibre',CX,CY+120,{a:'center',s:28,w:600,c:ink});
+    label('a coiled stack of nucleosomes',CX,CY+143,{a:'center',s:13,c:mute});
+    label('Nucleosome',CX+96,CY-100,{a:'center',s:14,w:600,c:ink});leader(CX+96,CY-92,CX+64,CY-40,mute);
+    label('DNA between nucleosomes',CX-150,CY-100,{a:'center',s:14,w:600,c:blue});leader(CX-150,CY-92,CX-128,CY-10,mute);
+    ctx.globalAlpha=1;
+  }
+}
+/* ---------- chromosome ---------- */
+function chAxis(w,t,g2){
+  const par=w?CX+16:CX-16,bent=w?CX+6+46*Math.abs(2*t-1):CX-6-46*Math.abs(2*t-1);
+  return [lerp(par,bent,g2),CY-100+230*t];
+}
+function drawChrom(cond,lc2,phase){
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),bg=col('--bg');
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.textBaseline='alphabetic';
+  const g1=clamp(cond*2,0,1),g2=ease(clamp(cond*2-1,0,1));
+  const ell=lerp(g1*58,4,g2),NS=46;
+  for(let w=0;w<2;w++){
+    const pts=[];for(let k=0;k<=NS;k++)pts.push(chAxis(w,k/NS,g2));
+    // loops of fibre around the axis
+    ctx.strokeStyle=blue2;ctx.lineWidth=2.4;ctx.globalAlpha=0.55+0.45*(1-g2);
+    for(let k=1;k<NS;k++){
+      const a=pts[k-1],b=pts[k+1];let tx=b[0]-a[0],ty=b[1]-a[1];const m=Math.hypot(tx,ty)||1;tx/=m;ty/=m;
+      const side=(k%2?1:-1)*(w?1:-1)*1,nx=-ty*side,ny=tx*side;
+      const jit=0.6+0.4*Math.abs(Math.sin(k*12.9898+w*78.2)),len=ell*jit;
+      if(len<1.5)continue;
+      ctx.beginPath();ctx.ellipse(pts[k][0]+nx*len*0.5,pts[k][1]+ny*len*0.5,len*0.5,4.5,Math.atan2(ny,nx),0,6.283);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+  for(let w=0;w<2;w++){
+    const pts=[];for(let k=0;k<=NS;k++)pts.push(chAxis(w,k/NS,g2));
+    const wd=lerp(5,32,g2);
+    ctx.strokeStyle=blue;ctx.globalAlpha=0.5+0.5*g2;ctx.lineWidth=wd;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+    // banding
+    if(g2>0.05){
+      ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.globalAlpha=0.28*g2;
+      for(let k=2;k<NS-1;k+=2){
+        const a=pts[k-1],b=pts[k+1];let tx=b[0]-a[0],ty=b[1]-a[1];const m=Math.hypot(tx,ty)||1;tx/=m;ty/=m;
+        const hw=wd*0.5*(k%4?0.9:0.55);
+        ctx.beginPath();ctx.moveTo(pts[k][0]-ty*hw,pts[k][1]+tx*hw);ctx.lineTo(pts[k][0]+ty*hw,pts[k][1]-tx*hw);ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+  if(g2>0.3){ctx.globalAlpha=g2;ctx.fillStyle=ink;ctx.beginPath();ctx.arc(CX,CY+15,7,0,6.283);ctx.fill();ctx.globalAlpha=1}
+  if(lc2>0.01){
+    ctx.globalAlpha=lc2;
+    banner('Chromatin fibres fold into loops and condense into a chromosome.',17);
+    const loopA=g1*(1-g2);
+    if(loopA>0.4){ctx.globalAlpha=lc2*loopA;label('Loops of chromatin fibre',CX+110,CY-96,{s:14,w:600,c:blue});leader(CX+104,CY-92,CX+16+ell*0.6,CY-70,mute)}
+    if(g2>0.7){
+      ctx.globalAlpha=lc2*clamp((g2-0.7)/0.3,0,1);
+      label('Chromosome',CX+130,CY-60,{s:28,w:600,c:ink});
+      label('condensed, before cell division',CX+130,CY-40,{s:13,c:mute});
+      leader(CX+124,CY-56,CX+62,CY-100,mute);
+      label('Sister chromatids',CX-110,CY-96,{a:'right',s:14,w:600,c:ink});
+      label('two identical copies of the DNA',CX-110,CY-78,{a:'right',s:12.5,c:mute});
+      leader(CX-104,CY-92,CX-48,CY-110,mute);
+      label('Centromere',CX+60,CY+50,{s:14,w:600,c:ink});leader(CX+56,CY+44,CX+9,CY+18,mute);
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ---------- zoom from chromosome to DNA ---------- */
+const HX=610,HY0=125,HY1=480,HA=46,HP2=150;
+const SEQ=['A','T','G','C','T','A','C','G','A','T','T','A','G','C','C','G','A','T'];
+const COMP={A:'T',T:'A',G:'C',C:'G'};
+const BC={A:'--blue2',T:'--blue',G:'--yel',C:'--yel2'},BT={A:'#0e2540',T:'#ffffff',G:'#161616',C:'#161616'};
+function drawZoom(z,lz){
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),line=col('--line'),yel=col('--yel');
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.textBaseline='alphabetic';
+  const zz=ease(clamp(z*1.3,0,1)),hz=clamp(z*2-0.9,0,1),cx2=CX-215,apx=cx2+18,apy=CY+12;
+  // grey wedge from the chromosome to the helix
+  const bx=lerp(apx+10,HX-70,zz),t1=lerp(apy-8,HY0-8,zz),b1=lerp(apy+8,HY1+8,zz);
+  ctx.globalAlpha=0.9*zz;ctx.fillStyle=line;ctx.beginPath();ctx.moveTo(apx,apy);ctx.lineTo(bx,t1);ctx.lineTo(bx,b1);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=mute;ctx.lineWidth=1;ctx.globalAlpha=zz;ctx.stroke();
+  if(hz>0.01){
+    ctx.globalAlpha=hz;
+    const pts=[];for(let y=HY0;y<=HY1;y+=3){const th=y*2*Math.PI/HP2;pts.push({y,s:Math.sin(th),c:Math.cos(th)})}
+    function strand(sg,color,front){
+      for(let i=1;i<pts.length;i++){
+        const d=sg*pts[i].c;if((d<0)===front)continue;
+        ctx.strokeStyle=color;ctx.lineWidth=5+2*d;
+        ctx.beginPath();ctx.moveTo(HX+sg*HA*pts[i-1].s,pts[i-1].y);ctx.lineTo(HX+sg*HA*pts[i].s,pts[i].y);ctx.stroke();
+      }
+    }
+    strand(1,blue,false);strand(-1,ink,false);
+    // base pairs
+    for(let n=0,y=HY0+10;y<HY1-6;n++,y+=21){
+      const th=y*2*Math.PI/HP2,s=Math.sin(th),xa=HX+HA*s,xb=HX-HA*s,w=Math.abs(xa-xb);
+      const L=SEQ[n%SEQ.length],R=COMP[L],xm=(xa+xb)/2;
+      const lx0=Math.min(xa,xb),mid=xm,rx1=Math.max(xa,xb);
+      // left half carries the base on strand a (x=xa), right half its partner
+      const aLeft=xa<xb;
+      const h1=aLeft?L:R,h2=aLeft?R:L;
+      ctx.fillStyle=col(BC[h1]);ctx.fillRect(lx0,y-6,mid-lx0,12);
+      ctx.fillStyle=col(BC[h2]);ctx.fillRect(mid,y-6,rx1-mid,12);
+      if(w>34){ctx.font='700 11px IBM Plex Sans, Arial';ctx.textAlign='center';
+        ctx.fillStyle=BT[h1];ctx.fillText(h1,(lx0+mid)/2,y+4);ctx.fillStyle=BT[h2];ctx.fillText(h2,(mid+rx1)/2,y+4);}
+    }
+    strand(1,blue,true);strand(-1,ink,true);
+    // several genes along the same helix
+    const bxr=HX+HA+26,G=[[150,228,'Gene A'],[262,340,'Gene B'],[374,452,'Gene C']];
+    G.forEach((g,n)=>{
+      const g0=g[0],g1=g[1];
+      ctx.globalAlpha=hz*clamp(z*3-1.2-n*0.35,0,1);
+      ctx.fillStyle=yel;ctx.fillRect(bxr+12,g0,6,g1-g0);
+      ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(bxr,g0);ctx.lineTo(bxr+10,g0);ctx.lineTo(bxr+10,g1);ctx.lineTo(bxr,g1);ctx.stroke();
+      label(g[2],bxr+26,(g0+g1)/2+(n===0?-4:6),{s:20,w:600,c:ink});
+      if(n===0){label('a stretch of DNA with instructions',bxr+26,(g0+g1)/2+14,{s:12,c:mute});label('for an RNA or protein',bxr+26,(g0+g1)/2+29,{s:12,c:mute})}
+    });
+    ctx.globalAlpha=hz*clamp(z*3-2.6,0,1);
+    label('DNA between genes',bxr+26,(228+262)/2+4,{s:12,c:mute});label('DNA between genes',bxr+26,(340+374)/2+4,{s:12,c:mute});
+    label('DNA continues, with more genes',HX,508,{a:'center',s:12,c:mute});
+    ctx.globalAlpha=1;
+  }
+  if(lz>0.01){
+    ctx.globalAlpha=lz;
+    banner('Zoom into a chromosome and you are back at the DNA, where many genes lie one after another.',17);
+    label('Chromosome',cx2,100,{a:'center',s:20,w:600,c:ink});
+    label('DNA',HX,104,{a:'center',s:20,w:600,c:ink});
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ---------- a blank screen with the idea in words ---------- */
+function wrapLines(t,maxw){const ws=t.split(' ');const out=[];let cur='';ws.forEach(w=>{const test=cur?cur+' '+w:w;if(ctx.measureText(test).width>maxw&&cur){out.push(cur);cur=w}else cur=test});out.push(cur);return out}
+function drawText(tv){
+  const ink=col('--ink');ctx.textBaseline='alphabetic';ctx.textAlign='center';
+  const blocks=[
+    {t:'Along that DNA are many genes, each containing information that the cell may use to make an RNA.',hl:false,f:'600 30px \'Source Serif 4\', Georgia, serif',lh:42,w:760},
+    {t:'But the cell does not use every gene at the same time.',hl:true,f:'700 46px IBM Plex Sans, Arial, sans-serif',lh:60,w:780},
+    {t:'The cell needs access to a particular gene.',hl:true,f:'700 46px IBM Plex Sans, Arial, sans-serif',lh:60,w:780}
+  ];
+  const laid=blocks.map(b=>{ctx.font=b.f;return wrapLines(b.t,b.w)});
+  const gap=34;let total=0;blocks.forEach((b,n)=>total+=laid[n].length*b.lh+gap);total-=gap;
+  let y=CY+26-total/2;
+  blocks.forEach((b,n)=>{
+    const a=ease(clamp(tv*3.2-n*0.95,0,1));ctx.globalAlpha=a;ctx.font=b.f;
+    laid[n].forEach((ln,i)=>{
+      const base=y+i*b.lh+b.lh*0.78+(1-a)*12;
+      if(b.hl){const w=ctx.measureText(ln).width;ctx.fillStyle=col('--yel2');ctx.fillRect(CX-w/2-14,base-b.lh*0.76,w+28,b.lh*0.92)}
+      ctx.fillStyle=b.hl?'#161616':ink;ctx.fillText(ln,CX,base);
+    });
+    y+=laid[n].length*b.lh+gap;
+  });
+  ctx.globalAlpha=1;
+}
+
+/* ---------- a small region becomes accessible ---------- */
+const AN=11,AXp=i=>90+i*72,ASC=0.58,ATY=CY+30;
+function ay(x){return ATY+6*Math.sin((x-CX)/110)}
+function accBead(x,y,w,al){
+  const ink=col('--ink'),blue=col('--blue'),dna=col('--dna'),bg=col('--bg');
+  ctx.save();ctx.translate(x,y);ctx.scale(ASC,ASC);ctx.globalAlpha=al;ctx.lineCap='round';
+  const a0=-Math.PI/2,a1=a0+Math.max(0.02,w)*2*Math.PI;
+  ctx.lineWidth=6;
+  ctx.strokeStyle=blue;ctx.beginPath();ctx.arc(0,0,35,a0,a1);ctx.stroke();
+  ctx.strokeStyle=ink;ctx.beginPath();ctx.arc(0,0,41,a0,a1);ctx.stroke();
+  if(w<0.98){ // the DNA peeling off the histones
+    const te=a1,r=38,ex=r*Math.cos(te),ey=r*Math.sin(te),tx=-Math.sin(te),ty=Math.cos(te),len=95*(1-w);
+    ctx.strokeStyle=ink;ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(ex,ey);ctx.quadraticCurveTo(ex+tx*len*0.6,ey+ty*len*0.6,ex+tx*len+ -ty*8*(1-w),ey+ty*len+tx*8*(1-w));ctx.stroke();
+    ctx.strokeStyle=blue;ctx.lineWidth=3.6;ctx.beginPath();ctx.moveTo(ex,ey);ctx.quadraticCurveTo(ex+tx*len*0.6,ey+ty*len*0.6,ex+tx*len+ -ty*8*(1-w),ey+ty*len+tx*8*(1-w));ctx.stroke();
+  }
+  ctx.fillStyle=bg;ctx.strokeStyle=dna;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,29,0,6.283);ctx.fill();ctx.stroke();
+  for(let i=0;i<8;i++){const a=-Math.PI/2+i*Math.PI/4+Math.PI/8;ctx.fillStyle=col(HI[i][1]);ctx.beginPath();ctx.arc(17*Math.cos(a),17*Math.sin(a),6.2,0,6.283);ctx.fill()}
+  ctx.restore();
+}
+function drawAccess(acc,l9,phase){
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),pan=col('--panel'),bg=col('--bg');
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.textBaseline='alphabetic';
+  const u=ease(clamp((acc-0.2)/0.3,0,1)),sl=ease(clamp((acc-0.4)/0.25,0,1)),rm=ease(clamp((acc-0.62)/0.18,0,1)),bind=ease(clamp((acc-0.8)/0.15,0,1)),rna=ease(clamp((acc-0.9)/0.1,0,1));
+  const expo=Math.max(sl*0.6,rm);
+  // the DNA string
+  function strokeStr(w,c,dash){ctx.lineWidth=w;ctx.strokeStyle=c;ctx.setLineDash(dash||[]);ctx.beginPath();for(let x=-10;x<=910;x+=6){const y=ay(x);x===-10?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();ctx.setLineDash([])}
+  // yellow glow behind the DNA that becomes available
+  if(expo>0.01){ctx.globalAlpha=0.55*expo;ctx.fillStyle=yel2;ctx.beginPath();ctx.roundRect(AXp(5)-92,ATY-26,184,52,26);ctx.fill();ctx.globalAlpha=1}
+  strokeStr(7,ink);strokeStr(3.4,blue);strokeStr(1.2,bg,[3,7]);
+  // exposed stretch drawn as a helix with base pairs
+  if(rm>0.05){
+    const x0=AXp(5)-74,x1=AXp(5)+74;
+    ctx.globalAlpha=rm;ctx.fillStyle=pan;ctx.globalAlpha=rm*0.0;ctx.globalAlpha=rm;
+    const pts=[];for(let x=x0;x<=x1;x+=2){const th=phase*1.2+x*2*Math.PI/26;const y=ay(x);pts.push({x,y,o:8*Math.sin(th),d:Math.cos(th)})}
+    ctx.fillStyle=col('--yel2');ctx.globalAlpha=0.0;ctx.globalAlpha=rm;
+    ctx.fillStyle=pan;ctx.fillRect(x0,ATY-14,x1-x0,28);
+    function st(sg,c,front){for(let i=1;i<pts.length;i++){const d=sg*pts[i].d;if((d<0)===front)continue;ctx.strokeStyle=c;ctx.lineWidth=3.2+1.4*d;ctx.beginPath();ctx.moveTo(pts[i-1].x,pts[i-1].y+sg*pts[i-1].o);ctx.lineTo(pts[i].x,pts[i].y+sg*pts[i].o);ctx.stroke()}}
+    st(1,blue,false);st(-1,ink,false);
+    for(let i=2;i<pts.length-2;i+=5){const L=SEQ[(i/5|0)%SEQ.length],R=COMP[L];ctx.lineWidth=2.2;
+      ctx.strokeStyle=col(BC[L]);ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y+pts[i].o);ctx.lineTo(pts[i].x,pts[i].y);ctx.stroke();
+      ctx.strokeStyle=col(BC[R]);ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[i].x,pts[i].y-pts[i].o);ctx.stroke()}
+    st(1,blue,true);st(-1,ink,true);ctx.globalAlpha=1;
+  }
+  // nucleosomes
+  for(let i=0;i<AN;i++){
+    let x=AXp(i),w=1,al=1,yo=0;
+    const inReg=(i>=4&&i<=6),near=(i===3||i===7);
+    if(inReg)w=1-0.6*u;else if(near)w=1-0.2*u;
+    if(i===4)x-=36*sl;if(i===6)x+=36*sl;if(i===3)x-=10*sl;if(i===7)x+=10*sl;
+    if(i===5){al=1-0.68*rm;yo=95*rm;x+=0}
+    if(al<=0.01)continue;
+    accBead(x,ay(x)+yo,w,al);
+  }
+  // transcription proteins
+  const base=[[CX-84,ATY-92],[CX-28,ATY-108],[CX+28,ATY-94],[CX+84,ATY-110]],BP=[[CX-33,ATY-17],[CX-11,ATY-19],[CX+11,ATY-19],[CX+33,ATY-17]];
+  const prot=[];
+  for(let i=0;i<4;i++){
+    let px=base[i][0]+Math.sin(phase*0.9+i*1.7)*9,py=base[i][1]+Math.cos(phase*1.1+i)*6;
+    py+=(1-sl)*34*Math.abs(Math.sin(phase*1.4+i*1.3)); // tries to reach the DNA, bounces off
+    const x=lerp(px,BP[i][0],bind),y=lerp(py,BP[i][1],bind);prot.push([x,y]);
+    ctx.fillStyle=ink;ctx.strokeStyle=blue;ctx.lineWidth=2.2;ctx.beginPath();ctx.roundRect(x-13,y-9,26,18,6);ctx.fill();ctx.stroke();
+  }
+  // RNA being made
+  if(rna>0.01){
+    ctx.strokeStyle=blue;ctx.lineWidth=2.8;ctx.beginPath();
+    for(let t=0;t<=1;t+=0.03){const x=CX+46+t*120*rna,y=ATY-22-t*58*rna+Math.sin(t*12+phase*2)*5;t?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();
+    ctx.globalAlpha=rna;label('RNA',CX+176*1,ATY-86,{s:14,w:600,c:blue});ctx.globalAlpha=1;
+  }
+  // labels
+  if(l9>0.01){
+    ctx.globalAlpha=l9;
+    const msg=acc<0.2?'Most of the DNA is wrapped up, so transcription proteins cannot reach it.':acc<0.5?'DNA loosens and unwraps locally.':acc<0.8?'Nucleosomes are repositioned, or temporarily removed.':'The relevant DNA sequence is now open to transcription proteins.';
+    ctx.font='600 17px IBM Plex Sans, Arial, sans-serif';const sw=ctx.measureText(msg).width;
+    ctx.fillStyle=yel2;ctx.fillRect(CX-sw/2-12,30,sw+24,34);label(msg,CX,52,{a:'center',s:17,w:600,c:'#161616'});
+    // gene bracket
+    const gx0=AXp(4)-34,gx1=AXp(6)+34,gy=ATY-148;
+    ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(gx0,gy+8);ctx.lineTo(gx0,gy);ctx.lineTo(gx1,gy);ctx.lineTo(gx1,gy+8);ctx.stroke();
+    ctx.fillStyle=yel;ctx.fillRect(gx0,gy-8,gx1-gx0,5);
+    label('Gene the cell needs',CX,gy-16,{a:'center',s:15,w:600,c:ink});
+    label('Transcription proteins',AXp(8)+20,ATY-100,{a:'left',s:13,w:600,c:ink});leader(AXp(8)+16,ATY-96,prot[3][0]+14,prot[3][1]-4,mute);
+    label('Nucleosome',AXp(1),ATY+82,{a:'center',s:13,w:600,c:ink});leader(AXp(1),ATY+72,AXp(1),ATY+27,mute);
+    label('DNA',AXp(9)+20,ATY+82,{a:'center',s:13,w:600,c:blue});leader(AXp(9)+20,ATY+72,AXp(9)+20,ay(AXp(9)+20)+6,mute);
+    if(rm>0.4){ctx.globalAlpha=l9*rm;label('Nucleosome removed for now',AXp(5),ATY+139,{a:'center',s:12,c:mute});ctx.globalAlpha=l9}
+    if(expo>0.5){ctx.globalAlpha=l9*expo;label('Exposed DNA sequence',AXp(5),ATY+54,{a:'center',s:14,w:600,c:ink});ctx.globalAlpha=l9}
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ---------- step 9: a small region of the chromosome becomes accessible ---------- */
+const OT=0.26; // position of the region along each chromatid
+function bump(t){const d=Math.abs(t-OT);return d<0.07?1:d<0.12?1-(d-0.07)/0.05:0}
+function drawChromOpen(acc,phase){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel2=col('--yel2'),mute=col('--mute');
+  ctx.lineCap='round';ctx.lineJoin='round';
+  const O=ease(clamp((acc-0.25)/0.35,0,1)),bind=ease(clamp((acc-0.72)/0.2,0,1)),NS=46;
+  const P=chAxis(1,OT,1),PL=chAxis(0,OT,1);
+  // soft yellow glow where the chromosome opens
+  if(O>0.01){ctx.globalAlpha=0.5*O;ctx.fillStyle=yel2;[P,PL].forEach(p=>{ctx.beginPath();ctx.ellipse(p[0],p[1],48,40,0,0,6.283);ctx.fill()});ctx.globalAlpha=1}
+  for(let w=0;w<2;w++){
+    const pts=[];for(let k=0;k<=NS;k++)pts.push(chAxis(w,k/NS,1));
+    // loosened loops
+    for(let k=1;k<NS;k++){
+      const o=O*bump(k/NS);if(o<0.03)continue;
+      const a=pts[k-1],b=pts[k+1];let tx=b[0]-a[0],ty=b[1]-a[1];const m=Math.hypot(tx,ty)||1;tx/=m;ty/=m;
+      const side=(k%2?1:-1),nx=-ty*side,ny=tx*side,len=(18+26*Math.abs(Math.sin(k*12.9898+w*78.2)))*o;
+      ctx.strokeStyle=blue2;ctx.lineWidth=2.4;ctx.globalAlpha=0.9*o;
+      ctx.beginPath();ctx.ellipse(pts[k][0]+nx*len*0.5,pts[k][1]+ny*len*0.5,len*0.5,4.5,Math.atan2(ny,nx),0,6.283);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // the chromatid itself: thick where packed, thin where loosened
+    for(let k=1;k<=NS;k++){
+      const o=O*bump((k-0.5)/NS),wd=lerp(32,6,o);
+      ctx.strokeStyle=blue;ctx.lineWidth=wd;ctx.beginPath();ctx.moveTo(pts[k-1][0],pts[k-1][1]);ctx.lineTo(pts[k][0],pts[k][1]);ctx.stroke();
+    }
+    ctx.strokeStyle=ink;ctx.lineWidth=1.6;
+    for(let k=2;k<NS-1;k+=2){
+      const o=O*bump(k/NS);if(o>0.5)continue;
+      const a=pts[k-1],b=pts[k+1];let tx=b[0]-a[0],ty=b[1]-a[1];const m=Math.hypot(tx,ty)||1;tx/=m;ty/=m;
+      const hw=16*(k%4?0.9:0.55)*(1-o*1.6);ctx.globalAlpha=0.28;
+      ctx.beginPath();ctx.moveTo(pts[k][0]-ty*hw,pts[k][1]+tx*hw);ctx.lineTo(pts[k][0]+ty*hw,pts[k][1]-tx*hw);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+  ctx.fillStyle=ink;ctx.beginPath();ctx.arc(CX,CY+15,7,0,6.283);ctx.fill();
+  // transcription proteins
+  const base=[[P[0]+95,P[1]-46],[P[0]+120,P[1]+4],[P[0]+92,P[1]+46],[P[0]+135,P[1]-24]];
+  const BPp=[[P[0]+16,P[1]-22],[P[0]+30,P[1]-4],[P[0]+14,P[1]+14],[P[0]+34,P[1]+22]];
+  const prot=[];
+  for(let i=0;i<4;i++){
+    let x=base[i][0]+Math.sin(phase*0.9+i*1.7)*7,y=base[i][1]+Math.cos(phase*1.1+i)*6;
+    x-=(1-O)*50*Math.abs(Math.sin(phase*1.3+i*1.2)); // pushes against the packed chromosome and bounces back
+    const fx=lerp(x,BPp[i][0],bind),fy=lerp(y,BPp[i][1],bind);prot.push([fx,fy]);
+    ctx.fillStyle=ink;ctx.strokeStyle=blue;ctx.lineWidth=2.2;ctx.beginPath();ctx.roundRect(fx-13,fy-9,26,18,6);ctx.fill();ctx.stroke();
+  }
+  return {P,PL,prot};
+}
+function drawOpenLabels(acc,l9){
+  const ink=col('--ink'),mute=col('--mute'),yel2=col('--yel2'),blue=col('--blue');
+  ctx.textBaseline='alphabetic';
+  if(l9<=0.01)return;
+  const S=1.25,sx=x=>CX+S*(x-CX),sy=y=>CY+S*(y-CY);
+  const P=chAxis(1,OT,1),PL=chAxis(0,OT,1),Q=chAxis(1,0.8,1);
+  ctx.globalAlpha=l9;
+  const msg=acc<0.25?'The chromosome is tightly packed, so transcription proteins cannot reach most of it.':acc<0.62?'A small region loosens locally.':'That small region is now accessible to transcription proteins.';
+  ctx.font='600 17px IBM Plex Sans, Arial, sans-serif';const sw=ctx.measureText(msg).width;
+  ctx.fillStyle=yel2;ctx.fillRect(CX-sw/2-12,30,sw+24,34);label(msg,CX,52,{a:'center',s:17,w:600,c:'#161616'});
+  label('Transcription proteins',sx(P[0])+150,sy(P[1])-72,{a:'left',s:14,w:600,c:ink});const bd=ease(clamp((acc-0.72)/0.2,0,1));leader(sx(P[0])+146,sy(P[1])-68,sx(P[0]+lerp(95,16,bd)+13),sy(P[1]+lerp(-46,-22,bd)-6),mute);
+  label('Tightly packed',sx(Q[0])+60,sy(Q[1])+10,{a:'left',s:14,w:600,c:ink});leader(sx(Q[0])+56,sy(Q[1])+6,sx(Q[0])+18,sy(Q[1])-4,mute);
+  if(acc>0.3){ctx.globalAlpha=l9*clamp((acc-0.3)/0.2,0,1);label('Region that becomes accessible',sx(PL[0])-62,sy(PL[1])-4,{a:'right',s:14,w:600,c:ink});leader(sx(PL[0])-58,sy(PL[1])-8,sx(PL[0])-16,sy(PL[1])-2,mute)}
+  ctx.globalAlpha=1;
+}
+
+/* ---------- step 9-10: zoomed-in views, chromosome -> chromatin -> nucleosomes ---------- */
+const LX=CX+190,LY=CY+10,LR=170;
+function drawLensInner(z,k,z2,phase,S,z3){
+  const ink=col('--ink'),mute=col('--mute'),blue=col('--blue'),line=col('--line'),yel=col('--yel'),bg=col('--bg');
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.textBaseline='alphabetic';
+  const dx=-200-135*k,sc=1-0.42*k;
+  const P=chAxis(1,0.2,1),mx=CX+dx+sc*(P[0]-CX),my=CY+sc*(P[1]-CY);
+  const LXc=lerp(LX,345,k),LYc=lerp(LY,CY+25,k),LRc=lerp(LR,105,k),s=LRc/LR,R=LRc*z;
+  ctx.globalAlpha=clamp(z*2,0,1);
+  ctx.strokeStyle=yel;ctx.lineWidth=3;ctx.beginPath();ctx.arc(mx,my,26*sc,0,6.283);ctx.stroke();
+  const a=0.62,tx=LXc-R*Math.cos(a),ty1=LYc-R*Math.sin(a),ty2=LYc+R*Math.sin(a);
+  ctx.fillStyle=line;ctx.globalAlpha=0.9*clamp(z*2,0,1);ctx.beginPath();ctx.moveTo(mx+20*sc,my-12*sc);ctx.lineTo(tx,ty1);ctx.lineTo(tx,ty2);ctx.lineTo(mx+20*sc,my+12*sc);ctx.closePath();ctx.fill();
+  ctx.globalAlpha=1;
+  if(R<4)return;
+  // lens 1: packed chromatin, a coiled fibre of nucleosomes
+  const pts=[];for(let i=0;i<14;i++){const x=LXc+(-205+i*31)*s,cy=LYc+34*s*Math.sin((x-LXc)/(75*s));pts.push([x,cy+(i%2?19:-19)*s])}
+  if(z2>0.001){
+    const L2X=715,L2Y=CY+15,R2=170*z2,ring=[(pts[6][0]+pts[7][0])/2,(pts[6][1]+pts[7][1])/2],rr=46*s;
+    const t2=L2X-R2*Math.cos(a),u1=L2Y-R2*Math.sin(a),u2=L2Y+R2*Math.sin(a);
+    ctx.fillStyle=line;ctx.globalAlpha=0.9*clamp(z2*2,0,1);ctx.beginPath();ctx.moveTo(ring[0]+rr*0.8,ring[1]-rr*0.5);ctx.lineTo(t2,u1);ctx.lineTo(t2,u2);ctx.lineTo(ring[0]+rr*0.8,ring[1]+rr*0.5);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  }
+  ctx.save();ctx.beginPath();ctx.arc(LXc,LYc,R,0,6.283);ctx.fillStyle=bg;ctx.fill();ctx.clip();
+  ctx.strokeStyle=ink;ctx.lineWidth=7*s;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  ctx.strokeStyle=blue;ctx.lineWidth=3.4*s;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  for(let i=0;i<14;i+=2)bead(pts[i][0],pts[i][1],0.66*s);
+  for(let i=1;i<14;i+=2)bead(pts[i][0],pts[i][1],0.66*s);
+  ctx.restore();
+  ctx.strokeStyle=ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(LXc,LYc,R,0,6.283);ctx.stroke();
+  ctx.globalAlpha=clamp(z*2-1,0,1)*(1-k);label('Zoomed-in view',LXc,LYc+LRc+30,{a:'center',s:14/S,w:600,c:ink});
+  ctx.globalAlpha=clamp(z*2-1,0,1)*k;label('Chromatin',LXc,LYc+LRc+30,{a:'center',s:14/S,w:600,c:ink});ctx.globalAlpha=1;
+  // lens 2: a few nucleosomes with their DNA
+  if(z2>0.001){
+    const L2X=715,L2Y=CY+15,R2=170*z2;
+    const ring=[(pts[6][0]+pts[7][0])/2,(pts[6][1]+pts[7][1])/2],rr=46*s;
+    ctx.globalAlpha=clamp(z2*2,0,1);ctx.strokeStyle=yel;ctx.lineWidth=3;ctx.beginPath();ctx.arc(ring[0],ring[1],rr,0,6.283);ctx.stroke();
+    if(R2>4){
+      if(z3>0.001){const lx=L3X/S,ly=(L3Y-CY*(1-S))/S,R3=180*z3/S,aa=0.62,tx3=lx-R3*Math.cos(aa),uy1=ly-R3*Math.sin(aa),uy2=ly+R3*Math.sin(aa);
+        ctx.fillStyle=line;ctx.globalAlpha=0.9*clamp(z3*2,0,1);ctx.beginPath();ctx.moveTo(L2X+34,L2Y-14);ctx.lineTo(tx3,uy1);ctx.lineTo(tx3,uy2);ctx.lineTo(L2X+34,L2Y+14);ctx.closePath();ctx.fill();ctx.globalAlpha=1}
+      ctx.save();ctx.beginPath();ctx.arc(L2X,L2Y,R2,0,6.283);ctx.fillStyle=bg;ctx.fill();ctx.clip();
+      const yf=x=>L2Y+24*Math.sin((x-L2X)/70);
+      const hp=[];for(let x=L2X-200;x<=L2X+200;x+=3){const th=phase*1.2+x*2*Math.PI/26;hp.push({x,y:yf(x),o:7*Math.sin(th),d:Math.cos(th)})}
+      function st(sg,c,front){for(let i=1;i<hp.length;i++){const d=sg*hp[i].d;if((d<0)===front)continue;ctx.strokeStyle=c;ctx.lineWidth=3.6+1.5*d;ctx.beginPath();ctx.moveTo(hp[i-1].x,hp[i-1].y+sg*hp[i-1].o);ctx.lineTo(hp[i].x,hp[i].y+sg*hp[i].o);ctx.stroke()}}
+      st(1,blue,false);st(-1,ink,false);
+      ctx.strokeStyle=col('--dna');ctx.lineWidth=1.8;for(let i=3;i<hp.length-3;i+=5){ctx.beginPath();ctx.moveTo(hp[i].x,hp[i].y+hp[i].o);ctx.lineTo(hp[i].x,hp[i].y-hp[i].o);ctx.stroke()}
+      st(1,blue,true);st(-1,ink,true);
+      [-124,0,124].forEach(dxb=>{bead(L2X+dxb,yf(L2X+dxb),0.98)});
+      ctx.restore();
+      ctx.strokeStyle=ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(L2X,L2Y,R2,0,6.283);ctx.stroke();
+      if(z3>0.001){ctx.globalAlpha=clamp(z3*2,0,1);ctx.strokeStyle=yel;ctx.lineWidth=3;ctx.beginPath();ctx.arc(L2X,L2Y,50,0,6.283);ctx.stroke();ctx.globalAlpha=1}
+      ctx.globalAlpha=clamp(z2*2-1,0,1);label('Nucleosomes on DNA',L2X,L2Y+170+30,{a:'center',s:14/S,w:600,c:ink});ctx.globalAlpha=1;
+    }
+  }
+}
+
+/* ---------- side view of one nucleosome: DNA rope on a histone dome ---------- */
+function sideGeom(w){
+  const N=380,Rr=100,th0=0.7*Math.PI,TH=3.3*Math.PI,h0=-46,h1=8,a=0.2,TL=130;
+  const Wf=p=>{const th=th0+TH*p;return [Rr*Math.cos(th),h0+(h1-h0)*p,-Rr*Math.sin(th)]};
+  const Dv=p=>{const th=th0+TH*p,v=[-Rr*Math.sin(th)*TH,(h1-h0),-Rr*Math.cos(th)*TH],m=Math.hypot(v[0],v[1],v[2]);return [v[0]/m,v[1]/m,v[2]/m]};
+  const W0=Wf(0),W1=Wf(1),d0=Dv(0),d1=Dv(1),out=[];
+  for(let i=0;i<=N;i++){
+    const t=i/N;let P;
+    if(t<a){const tau=(a-t)/a;P=[W0[0]-d0[0]*TL*tau,W0[1]-d0[1]*TL*tau,W0[2]-d0[2]*TL*tau]}
+    else if(t>1-a){const tau=(t-(1-a))/a;P=[W1[0]+d1[0]*TL*tau,W1[1]+d1[1]*TL*tau,W1[2]+d1[2]*TL*tau]}
+    else P=Wf((t-a)/(1-2*a));
+    const S=[-200+400*t,84,26];
+    const u=ease(clamp(w*1.9-t*0.9,0,1));
+    const x=lerp(S[0],P[0],u),y=lerp(S[1],P[1],u),z=lerp(S[2],P[2],u);
+    out.push({x,y:y+z*0.34,z});
+  }
+  return out;
+}
+function drawSide(al,w,phase){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),mute=col('--mute'),bg=col('--bg');
+  ctx.save();ctx.globalAlpha=al;ctx.lineCap='round';ctx.lineJoin='round';
+  const pts=sideGeom(w),N=pts.length;
+  // rope strands
+  const A=[],B=[],D=[];
+  for(let i=0;i<N;i++){
+    const p0=pts[Math.max(0,i-1)],p1=pts[Math.min(N-1,i+1)];let tx=p1.x-p0.x,ty=p1.y-p0.y;const m=Math.hypot(tx,ty)||1;tx/=m;ty/=m;
+    const th=phase*1.4+i*0.55,off=5.5*Math.sin(th);
+    A.push([pts[i].x-ty*off,pts[i].y+tx*off]);B.push([pts[i].x+ty*off,pts[i].y-tx*off]);D.push(Math.cos(th));
+  }
+  function rope(front){
+    for(const key of ['A','B']){
+      const arr=key==='A'?A:B,sg=key==='A'?1:-1;
+      for(let i=1;i<N;i++){
+        const isFront=pts[i].z>=0;if(isFront!==front)continue;
+        const d=sg*D[i];ctx.strokeStyle=key==='A'?blue:ink;ctx.lineWidth=5+1.8*d;
+        ctx.beginPath();ctx.moveTo(arr[i-1][0],arr[i-1][1]);ctx.lineTo(arr[i][0],arr[i][1]);ctx.stroke();
+      }
+    }
+  }
+  rope(false);
+  // histone dome: wall, then top face split into four parts
+  const rx=92,ry=34,yt=-60,yb=32;
+  const g=ctx.createLinearGradient(-rx,0,rx,0);g.addColorStop(0,yel2);g.addColorStop(0.35,yel2);g.addColorStop(1,yel);
+  ctx.globalAlpha=al*0.0+al;
+  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-rx,yt);ctx.lineTo(-rx,yb);ctx.ellipse(0,yb,rx,ry,0,Math.PI,0,true);ctx.lineTo(rx,yt);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(-rx,yt);ctx.lineTo(-rx,yb);ctx.ellipse(0,yb,rx,ry,0,Math.PI,0,true);ctx.lineTo(rx,yt);ctx.stroke();
+  // subtle slit between the two histone layers
+  ctx.strokeStyle=ink;ctx.globalAlpha=al*0.35;ctx.beginPath();ctx.ellipse(0,(yt+yb)/2+4,rx,ry,0,0,Math.PI);ctx.stroke();ctx.globalAlpha=al;
+  // top face quadrants
+  ctx.save();ctx.beginPath();ctx.ellipse(0,yt,rx,ry,0,0,6.283);ctx.clip();
+  const q=[[-rx,yt-ry,0,yt,yel],[0,yt-ry,rx,yt,yel2],[0,yt,rx,yt+ry,blue2],[-rx,yt,0,yt+ry,blue]];
+  q.forEach(r=>{ctx.fillStyle=r[4];ctx.fillRect(r[0],r[1],r[2]-r[0],r[3]-r[1])});
+  const hg=ctx.createRadialGradient(-30,yt-12,4,-10,yt,rx);hg.addColorStop(0,'rgba(255,255,255,0.55)');hg.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=hg;ctx.fillRect(-rx,yt-ry,2*rx,2*ry);
+  ctx.restore();
+  ctx.strokeStyle=ink;ctx.lineWidth=2.2;ctx.beginPath();ctx.ellipse(0,yt,rx,ry,0,0,6.283);ctx.stroke();
+  ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(-rx,yt);ctx.lineTo(rx,yt);ctx.moveTo(0,yt-ry);ctx.lineTo(0,yt+ry);ctx.stroke();
+  rope(true);
+  ctx.restore();
+}
+
+const L3X=710,L3Y=CY+10;
+function drawLens(z,k,z2,m,z3,phase){
+  const S=lerp(1,0.56,m);
+  ctx.save();ctx.translate(0,CY*(1-S));ctx.scale(S,S);
+  drawLensInner(z,k,z2,phase,S,z3);
+  ctx.restore();
+  if(z3>0.001){
+    const R3=180*z3,ink=col('--ink'),bg=col('--bg');
+    ctx.save();ctx.beginPath();ctx.arc(L3X,L3Y,R3,0,6.283);ctx.fillStyle=bg;ctx.fill();ctx.clip();
+    const vw=ease(V.view.v);
+    ctx.save();ctx.globalAlpha=1-vw;ctx.translate(L3X,L3Y+10);ctx.scale(1.1,1.1);ctx.translate(-CX,-CY);ctx.drawImage(oc,0,0,900,520);ctx.restore();
+    if(vw>0.01){ctx.save();ctx.translate(L3X,L3Y+8);ctx.scale(0.95,0.95);drawSide(vw,ease(V.sw.v),performance.now()/1000);
+      ctx.globalAlpha=vw*clamp(V.sw.v*2-1,0,1);
+      label('Histone',-132,-112,{a:'left',s:14,w:600,c:col('--ink')});label('octamer',-132,-95,{a:'left',s:14,w:600,c:col('--ink')});
+      ctx.strokeStyle=col('--ink');ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(-78,-98);ctx.lineTo(-52,-84);ctx.stroke();
+      label('DNA',112,70,{a:'left',s:14,w:600,c:col('--blue')});ctx.beginPath();ctx.strokeStyle=col('--ink');ctx.moveTo(108,66);ctx.lineTo(86,44);ctx.stroke();
+      ctx.restore()}
+    ctx.restore();
+    ctx.strokeStyle=ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(L3X,L3Y,R3,0,6.283);ctx.stroke();
+    ctx.globalAlpha=clamp(z3*2-1,0,1);ctx.textAlign='center';
+    label('One nucleosome',L3X,L3Y+180+28,{a:'center',s:16,w:600,c:ink});
+    label('DNA wrapped about 1.65 turns around a histone octamer',L3X,L3Y+180+47,{a:'center',s:12,c:col('--mute')});
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ---------- controls ---------- */
+let playing=true,tm=null;
+function runFrom(i){
+  clearTimeout(tm);if(!playing||i>10)return;
+  const T=goStage(i);
+  if(i<10)tm=setTimeout(()=>runFrom(i+1),(T+(i===7?2.5:2.2))*1000);
+}
+function restart(){
+  clearTimeout(tm);const b=stateFor(0);
+  for(const k in b){V[k].v=0;V[k].d=null}
+  V.lab0.v=0;V.view.v=1;stage=-1;playing=true;$('playBtn').textContent='Pause';
+  $('vSide').classList.add('on');$('vTop').classList.remove('on');
+  runFrom(0);
+}
+$('playBtn').onclick=()=>{
+  if(playing){playing=false;clearTimeout(tm);$('playBtn').textContent='Play'}
+  else{playing=true;$('playBtn').textContent='Pause';if(stage>=10)restart();else tm=setTimeout(()=>runFrom(stage+1),300)}
+};
+$('restart').onclick=restart;
+$('mllTog').onchange=e=>{const on=e.target.checked;$('mllBody').hidden=!on;$('mllTxt').textContent=on?'On':'Off';
+  if(on&&!$('h3Frame').getAttribute('src'))$('h3Frame').src=$('h3Frame').dataset.src};
+$('repTog').onchange=e=>{const on=e.target.checked;$('repBody').hidden=!on;$('repTxt').textContent=on?'On':'Off';
+  if(on&&!$('repFrame').getAttribute('src'))$('repFrame').src=$('repFrame').dataset.src};
+$('rpTog').onchange=e=>{const on=e.target.checked;$('rpBody').hidden=!on;$('rpTxt').textContent=on?'On':'Off';if(on&&!$('rpFrame').getAttribute('src'))$('rpFrame').src=$('rpFrame').dataset.src};
+$('prTog').onchange=e=>{const on=e.target.checked;$('prBody').hidden=!on;$('prTxt').textContent=on?'On':'Off';if(on&&!$('prFrame').getAttribute('src'))$('prFrame').src=$('prFrame').dataset.src};
+$('actTog').onchange=e=>{const on=e.target.checked;$('actBody').hidden=!on;$('actTxt').textContent=on?'On':'Off';
+  if(on&&!$('actFrame').getAttribute('src'))$('actFrame').src=$('actFrame').dataset.src};
+$('bgTog').onchange=e=>{const on=e.target.checked;$('bgBody').hidden=!on;$('bgTxt').textContent=on?'On':'Off';
+  if(!on){clearTimeout(tm);playing=false;$('playBtn').textContent='Play'}
+  else restart()};
+$('accR').oninput=e=>{V.acc.d=null;V.acc.v=+e.target.value/100};
+$('accPlay').onclick=()=>{V.acc.d=null;V.acc.v=0;setTween('acc',1,0,DUR.acc)};
+$('vSide').onclick=()=>{setTween('view',1,0,0.8);$('vSide').classList.add('on');$('vTop').classList.remove('on')};
+$('vTop').onclick=()=>{setTween('view',0,0,0.8);$('vTop').classList.add('on');$('vSide').classList.remove('on')};
+window.__goStage=goStage;window.__V=V;
+ui();requestAnimationFrame(draw);restart();
+})();
+</script>

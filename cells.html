@@ -1,0 +1,90 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Normal and MLL3/4 KO cells</title>
+<style>
+:root{--bg:#ffffff;--panel:#f4f4f3;--ink:#161616;--mute:#5c5c5c;--line:#d4d4d2;--blue:#1f5a9e;--blue2:#6fa0d6;--yel:#e3a800;--yel2:#f3cf63;--sans:Arial,sans-serif;--serif:Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--panel:#1c1c1b;--ink:#ececea;--mute:#a0a09c;--line:#363634;--blue:#5a9be0;--blue2:#9cc3ee;--yel:#f0b82a;--yel2:#f6d77e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121212;--panel:#1c1c1b;--ink:#ececea;--mute:#a0a09c;--line:#363634;--blue:#5a9be0;--blue2:#9cc3ee;--yel:#f0b82a;--yel2:#f6d77e;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--serif);padding:12px 16px 20px}
+.wrap{max-width:920px;margin:0 auto}
+.stage{background:var(--panel);border:1px solid var(--line)}
+canvas{display:block;width:100%;height:auto}
+.cap{margin:14px 0 8px;min-height:92px}.cap h2{font:600 17px/1.3 var(--sans);margin:0 0 4px}.cap p{margin:0}
+.ctl{display:flex;gap:8px;align-items:center}
+button{font:500 13px var(--sans);padding:8px 14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.go{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar{flex:1;height:4px;background:var(--line);margin-left:10px}.bar i{display:block;height:100%;width:0;background:var(--blue)}
+</style>
+<div class="wrap">
+<div class="stage"><canvas id="cv" width="1920" height="2580" role="img" aria-label="Two cells: a normal cell and an MLL3/MLL4 knockout cell"></canvas></div>
+
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function lab(t,x,y,o={}){ctx.font=(o.w||500)+' '+(o.s||13)+"px 'IBM Plex Sans',Arial,sans-serif";ctx.textAlign='center';ctx.fillStyle=o.c||col('--ink');ctx.fillText(t,x,y)}
+function rnd(i){const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)}
+function cell(cx,cy,ko,T){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),bg=col('--bg'),panel=col('--panel');
+  const wob=(a)=>1+0.012*Math.sin(T*1.3+a);
+  // cell body
+  ctx.beginPath();for(let i=0;i<=96;i++){const a=i/96*6.283,r=150*wob(a*3);const x=cx+r*Math.cos(a),y=cy+r*0.94*Math.sin(a);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();
+  ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle=ink;ctx.lineWidth=3;ctx.stroke();
+  // nucleus
+  ctx.beginPath();ctx.arc(cx,cy,84,0,6.283);ctx.fillStyle=panel;ctx.fill();ctx.strokeStyle=ink;ctx.lineWidth=2.4;ctx.stroke();
+  // chromatin
+  ctx.lineCap='round';ctx.lineJoin='round';
+  const paths=[];
+  for(let k=0;k<6;k++){const pts=[];const a0=rnd(k*3)*6.283,rr=18+rnd(k*3+1)*44;let x=cx+rr*Math.cos(a0),y=cy+rr*Math.sin(a0);
+    for(let s=0;s<14;s++){const ang=rnd(k*31+s)*6.283;x+=11*Math.cos(ang);y+=11*Math.sin(ang);const d=Math.hypot(x-cx,y-cy);if(d>68){x=cx+(x-cx)*68/d;y=cy+(y-cy)*68/d}pts.push([x+1.2*Math.sin(T*2+s+k),y+1.2*Math.cos(T*2+s)])}paths.push(pts)}
+  paths.forEach(p=>{ctx.strokeStyle=blue;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length-1;i++){const mx=(p[i][0]+p[i+1][0])/2,my=(p[i][1]+p[i+1][1])/2;ctx.quadraticCurveTo(p[i][0],p[i][1],mx,my)}ctx.stroke()});
+  if(!ko){paths.forEach((p,k)=>{[3,8,11].forEach((i,j)=>{if((k+j)%2===0){const q=p[i];ctx.fillStyle=yel;ctx.strokeStyle=ink;ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(q[0],q[1],6.5,0,6.283);ctx.fill();ctx.stroke()}})})}
+  if(ko){ctx.font="700 22px 'IBM Plex Sans',Arial,sans-serif";const w1=ctx.measureText('MLL3/4 KO ').width,w2=ctx.measureText('(DNA damage)').width,x0=cx-(w1+w2)/2;ctx.textAlign='left';ctx.fillStyle=ink;ctx.fillText('MLL3/4 KO ',x0,cy+200);ctx.fillStyle=(matchMedia('(prefers-color-scheme: dark)').matches?'#ff7b72':'#c62828');ctx.fillText('(DNA damage)',x0+w1,cy+200)}
+  else{ctx.font="700 22px 'IBM Plex Sans',Arial,sans-serif";const w1=ctx.measureText('Normal ').width,w2=ctx.measureText('(healthy)').width,x0=cx-(w1+w2)/2;ctx.textAlign='left';ctx.fillStyle=ink;ctx.fillText('Normal ',x0,cy+200);ctx.fillStyle=(matchMedia('(prefers-color-scheme: dark)').matches?'#4cc38a':'#1e8e4e');ctx.fillText('(healthy)',x0+w1,cy+200)}
+  if(ko){const dc=(matchMedia('(prefers-color-scheme: dark)').matches?'#ff7b72':'#c62828');
+    [[-34,-40],[20,-52],[44,-8],[-52,6],[8,18],[-18,44],[38,40],[-6,-12]].forEach(([dx,dy],i)=>{const q=1+0.12*Math.sin(T*3+i),x=cx+dx,y=cy+dy;
+      ctx.fillStyle=dc;ctx.strokeStyle=bg;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,6.5*q,0,6.283);ctx.fill();ctx.stroke()})}
+  if(ko)lab('Damage is recognised by γH2AX and 53BP1 foci',cx,cy+243,{s:13,w:600,c:(matchMedia('(prefers-color-scheme: dark)').matches?'#ff7b72':'#c62828')});
+  lab(ko?'MLL3 and MLL4 absent: no H3K4me1 at enhancers':'MLL3 and MLL4 present: H3K4me1 at enhancers',cx,cy+224,{s:13,c:col('--mute')});
+}
+function rnaBox(cx,T,N,label,W,from){
+  const ink=col('--ink'),yel=col('--yel'),mute=col('--mute'),bg=col('--bg');
+  ctx.strokeStyle=ink;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(from[0],from[1]);ctx.lineTo(cx,452);
+  const ang=Math.atan2(452-from[1],cx-from[0]);ctx.moveTo(cx-9*Math.cos(ang-0.5),452-9*Math.sin(ang-0.5));ctx.lineTo(cx,452);ctx.lineTo(cx-9*Math.cos(ang+0.5),452-9*Math.sin(ang+0.5));ctx.stroke();
+  const n=Math.min(N,Math.floor(((T%12)/5)*N));
+  ctx.fillStyle=bg;ctx.strokeStyle=(cx>300?yel:ink);ctx.lineWidth=(cx>300?4:2);ctx.beginPath();ctx.roundRect(cx-W/2,462,W,176,10);ctx.fill();ctx.stroke();
+  const cs=(W-40)/10,rows=Math.ceil(N/10),rs=Math.min(13.2,150/rows);
+  for(let i=0;i<N;i++){if(i>=n)break;const c=i%10,r=Math.floor(i/10),x=cx-W/2+20+c*cs,y=478+r*rs;
+    ctx.beginPath();for(let k=0;k<=8;k++){const px=x+k*Math.min(1.9,cs/11),py=y+2.4*Math.sin(k*1.1+i);k?ctx.lineTo(px,py):ctx.moveTo(px,py)}
+    ctx.strokeStyle=ink;ctx.lineWidth=4;ctx.stroke();ctx.strokeStyle=yel;ctx.lineWidth=2.2;ctx.stroke()}
+  lab(label+': '+n+' copies',cx,660,{s:16,w:700});
+  lab('(example number)',cx,678,{s:12,c:mute});
+  if(cx>300&&n>=N){const up=N>100,c=up?(matchMedia('(prefers-color-scheme: dark)').matches?'#4cc38a':'#1e8e4e'):(matchMedia('(prefers-color-scheme: dark)').matches?'#ff7b72':'#c62828');
+    ctx.fillStyle=c;ctx.beginPath();if(up){ctx.moveTo(cx-62,704);ctx.lineTo(cx-48,704);ctx.lineTo(cx-55,692)}else{ctx.moveTo(cx-62,692);ctx.lineTo(cx-48,692);ctx.lineTo(cx-55,704)}ctx.closePath();ctx.fill();
+    ctx.font="700 14px 'IBM Plex Sans',Arial,sans-serif";ctx.textAlign='left';ctx.fillText(up?'more than 100 (up)':'less than 100 (down)',cx-40,703)}
+}
+function draw(){
+  const T=performance.now()/1000;
+  ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,960,1300);ctx.translate(30,0);
+  cell(225,175,false,T);cell(675,175,true,T+2);rnaBox(225,T,100,'Gene X RNA',240,[225,415]);rnaBox(555,T,78,'Gene X RNA',200,[650,434]);rnaBox(775,T,120,'Gene Y RNA',200,[700,434]);
+  ctx.fillStyle=col('--yel');ctx.strokeStyle=col('--ink');ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(345,1262,6,0,6.283);ctx.fill();ctx.stroke();
+  ctx.fillStyle=(matchMedia('(prefers-color-scheme: dark)').matches?'#ff7b72':'#c62828');ctx.beginPath();ctx.arc(462,1262,6,0,6.283);ctx.fill();lab('= DNA damage foci (γH2AX, 53BP1)',582,1266,{s:12,c:col('--mute')});
+  lab('= H3K4me1 mark',402,1266,{s:12,c:col('--mute')});
+  {const ink=col('--ink'),yel=col('--yel'),mute=col('--mute'),bg=col('--bg');
+   const arrow=(x1,y1,x2,y2)=>{ctx.strokeStyle=ink;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);const a=Math.atan2(y2-y1,x2-x1);ctx.moveTo(x2-9*Math.cos(a-0.5),y2-9*Math.sin(a-0.5));ctx.lineTo(x2,y2);ctx.lineTo(x2-9*Math.cos(a+0.5),y2-9*Math.sin(a+0.5));ctx.stroke()};
+   const box=(x,y,w,h,t,l1,l2,l3)=>{ctx.fillStyle=bg;ctx.strokeStyle=yel;ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();ctx.stroke();
+     lab(t,x+w/2,y+26,{s:17,w:700});lab(l1,x+w/2,y+48,{s:13,c:mute});if(l2)lab(l2,x+w/2,y+66,{s:13,c:mute});if(l3)lab(l3,x+w/2,y+84,{s:12,w:600})};
+   ctx.save();ctx.translate(0,56);
+   ctx.strokeStyle=ink;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
+   ctx.beginPath();ctx.moveTo(555,652);ctx.lineTo(555,668);ctx.lineTo(670,694);ctx.moveTo(775,652);ctx.lineTo(775,668);ctx.lineTo(670,694);ctx.lineTo(670,712);ctx.stroke();arrow(670,700,670,721);
+   box(470,722,400,96,'Find the non-coding RNAs that change','Use RNA sequencing to look for lncRNAs and miRNAs that','increase or decrease when MLL3 or MLL4 is missing.','(for both the 78-copy and 120-copy RNAs)');
+   arrow(670,818,670,842);
+   box(470,842,400,96,'Confirm the RNA changes','Use RT-qPCR to check selected candidates','in independent samples.','(for both the 78-copy and 120-copy RNAs)');
+   box(60,966,820,90,'We investigate that RNA (78 copies)','Restore it towards 100 (overexpression or CRISPRa) and see whether','DNA damage becomes more, less or unchanged.');
+   box(60,1076,820,90,'We investigate this RNA (120 copies)','Reduce it towards 100 (siRNA or CRISPR) and see whether','DNA damage becomes more, less or unchanged.')
+   ctx.strokeStyle=ink;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
+   ctx.beginPath();ctx.moveTo(455,504);ctx.lineTo(430,504);ctx.lineTo(430,960);ctx.stroke();arrow(430,944,430,965);
+   ctx.beginPath();ctx.moveTo(875,504);ctx.lineTo(889,504);ctx.lineTo(889,1121);ctx.stroke();arrow(896,1121,881,1121);ctx.restore()}
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>

@@ -1,0 +1,293 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MLL3/MLL4 writing H3K4me1</title>
+<style>
+:root{--bg:#ffffff;--panel:#f4f4f3;--ink:#161616;--mute:#5c5c5c;--line:#d4d4d2;--blue:#1f5a9e;--blue2:#6fa0d6;--yel:#e3a800;--yel2:#f3cf63;--sans:Arial,sans-serif;--serif:Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--panel:#1c1c1b;--ink:#ececea;--mute:#a0a09c;--line:#363634;--blue:#5a9be0;--blue2:#9cc3ee;--yel:#f0b82a;--yel2:#f6d77e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121212;--panel:#1c1c1b;--ink:#ececea;--mute:#a0a09c;--line:#363634;--blue:#5a9be0;--blue2:#9cc3ee;--yel:#f0b82a;--yel2:#f6d77e;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--serif);padding:12px 16px 20px}
+.wrap{max-width:920px;margin:0 auto}
+.stage{background:var(--panel);border:1px solid var(--line)}
+canvas{display:block;width:100%;height:auto}
+.cap{margin:14px 0 8px;min-height:92px}.cap h2{font:600 17px/1.3 var(--sans);margin:0 0 4px}.cap p{margin:0}
+.ctl{display:flex;gap:8px;align-items:center}
+button{font:500 13px var(--sans);padding:8px 14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.go{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar{flex:1;height:4px;background:var(--line);margin-left:10px}.bar i{display:block;height:100%;width:0;background:var(--blue)}
+</style>
+<div class="wrap">
+<div class="stage"><canvas id="cv" width="1800" height="1040" role="img" aria-label="Animation: the MLL3/MLL4 complex binds the H3 tail of a nucleosome and adds a methyl group to lysine 4"></canvas></div>
+<div class="cap" id="cap"></div>
+<div class="ctl"><button id="pp" class="go">Pause</button><button id="rs">Restart</button><div class="bar"><i id="pb"></i></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),cv=$('cv');
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const LOOP=118;
+const CAP=[
+['The H3 tail','The histone octamer contains two copies each of H2A, H2B, H3 and H4. The H3 subunit has a flexible tail that sticks out of the nucleosome. On histone H3, the fourth amino acid from the tip is lysine 4, written K4.'],
+['MLL3 and MLL4 arrive','MLL3 and MLL4 (KMT2C and KMT2D) work as large protein complexes. Transcription factors guide them to enhancers.'],
+['Binding the H3 tail','The tail reaches into the complex and K4 sits against the SET domain, the part that does the chemistry.'],
+['Adding one methyl group','The SET domain takes a methyl group (CH3) from the donor SAM and attaches it to K4.'],
+['H3K4me1','The complex lets go, but the mark stays on the nucleosome. One methyl on K4 is H3K4me1, the mark MLL3 and MLL4 write at enhancers.'],
+['Readers recognise the mark','Chromatin-associated proteins, called readers, have a pocket that fits the methylated K4. They bind where the mark is and nowhere else.'],
+['Remodellers are recruited','Bound readers bring in chromatin remodellers, proteins that use energy to slide nucleosomes along the DNA or remove them.'],
+['The chromatin reorganises','Nucleosomes move apart and a stretch of DNA is left open. Transcription proteins can now reach the DNA at this enhancer.'],
+['Focus: open, accessible DNA','With the nucleosomes moved aside, this stretch of DNA is no longer wrapped around histones. Its base sequence is exposed, so transcription proteins can bind to it.'],
+['Zooming out to one gene: Gene X','This open DNA is the enhancer of a single gene, Gene X. Along the DNA come the enhancer, the promoter, and the gene itself.'],
+['Activators bind the enhancer','Activators are transcription factors that recognise DNA sequences in the enhancer. They can only bind because the DNA is open.'],
+['The transcription machinery assembles','General transcription factors gather at the promoter, next to the start of the gene, and bring in RNA polymerase.'],
+['Gene X is ready to be transcribed','With the enhancer, promoter and gene all in place, RNA polymerase can start copying Gene X into RNA.'],
+['The DNA bends','DNA can fold back on itself. The enhancer is brought right up against the promoter of Gene X, forming a DNA loop.'],
+['Mediator links them','Mediator is a large protein complex. It sits between the activators and the machinery at the promoter and bridges the gap.'],
+['Mediator relays the message','Mediator passes the activators’ signal on to the general transcription factors and RNA polymerase, helping them start transcribing Gene X.'],
+['RNA polymerase transcribes Gene X','RNA polymerase leaves the promoter and moves along Gene X. It reads the DNA and builds an RNA copy of the gene, one letter at a time.'],
+['A new RNA molecule','The RNA grows behind the polymerase. It is a copy of the gene\u2019s sequence, which the cell can use to make a protein or use as an RNA.']];
+const oc=document.createElement('canvas');oc.width=1800;oc.height=1040;const octx=oc.getContext('2d');let ctx=cv.getContext('2d');const mainctx=ctx;
+let t0=performance.now(),playing=true,pausedT=0,lastCap=-1;
+const QS=new URLSearchParams(location.search),RS=+(QS.get('s')||0),RE=+(QS.get('e')||LOOP),SPAN=RE-RS;
+function curT(){return playing?RS+((performance.now()-t0)/1000)%SPAN:pausedT}
+const B={x:338,y:312},Erest={x:520,y:140},Ebound={x:596,y:262};
+function tailPts(E,w){
+  const c={x:lerp(B.x,E.x,.35)+10,y:B.y-30-(1-w)*0};
+  const P=[];for(let i=0;i<=120;i++){const s=i/120,a=(1-s)*(1-s),b=2*(1-s)*s,d=s*s;P.push({x:a*B.x+b*c.x+d*E.x,y:a*B.y+b*c.y+d*E.y})}return P;
+}
+function walk(P,back,fromEnd){ // point at arc distance `back` from tip
+  let acc=0;for(let i=P.length-1;i>0;i--){const dx=P[i].x-P[i-1].x,dy=P[i].y-P[i-1].y,l=Math.hypot(dx,dy);if(acc+l>=back){const f=(back-acc)/l;return {x:P[i].x-dx*f,y:P[i].y-dy*f}}acc+=l}return P[0]}
+function lab(txt,x,y,o={}){ctx.font=(o.w||500)+' '+(o.s||13)+"px 'IBM Plex Sans',Arial,sans-serif";ctx.textAlign=o.a||'left';ctx.fillStyle=o.c||col('--ink');ctx.fillText(txt,x,y)}
+function lead(x1,y1,x2,y2){ctx.strokeStyle=col('--ink');ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function sceneA(T){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),mute=col('--mute'),bg=col('--bg'),panel=col('--panel');
+  ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,900,520);ctx.lineCap='round';ctx.lineJoin='round';
+  const u1=ease(clamp((T-3)/4,0,1)),u2=ease(clamp((T-7)/3,0,1)),u4=ease(clamp((T-17)/3,0,1));
+  const bind=u2*(1-u4),sway=(1-bind)*5*Math.sin(T*2.1);
+  const E={x:lerp(Erest.x,Ebound.x,bind),y:lerp(Erest.y,Ebound.y,bind)+sway};
+  const P=tailPts(E,bind);
+  const me=T>=13.2&&T<LOOP;
+  // ---- nucleosome (side) ----
+  const cx=230,rx=108,ry=32,yt=240,yb=370;
+  let g=ctx.createLinearGradient(cx-rx,0,cx+rx,0);g.addColorStop(0,yel2);g.addColorStop(1,yel);
+  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(cx-rx,yt);ctx.lineTo(cx-rx,yb);ctx.ellipse(cx,yb,rx,ry,0,Math.PI,0,true);ctx.lineTo(cx+rx,yt);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.stroke();
+  ctx.save();ctx.beginPath();ctx.ellipse(cx,yt,rx,ry,0,0,6.283);ctx.clip();
+  [[cx-rx,yt-ry,cx,yt,yel2],[cx,yt-ry,cx+rx,yt,yel],[cx,yt,cx+rx,yt+ry,blue2],[cx-rx,yt,cx,yt+ry,blue]].forEach(r=>{ctx.fillStyle=r[4];ctx.fillRect(r[0],r[1],r[2]-r[0],r[3]-r[1])});ctx.restore();
+  ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,yt,rx,ry,0,0,6.283);ctx.stroke();
+  ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(cx-rx,yt);ctx.lineTo(cx+rx,yt);ctx.moveTo(cx,yt-ry);ctx.lineTo(cx,yt+ry);ctx.stroke();
+  lab('H4',cx-rx/2,yt-10,{a:'center',s:12,w:700,c:'#161616'});lab('H3',cx+rx/2,yt-10,{a:'center',s:13,w:700,c:'#161616'});
+  lab('H2A',cx-rx/2,yt+24,{a:'center',s:12,w:700,c:'#fff'});lab('H2B',cx+rx/2,yt+24,{a:'center',s:12,w:700,c:'#161616'});
+  ctx.strokeStyle=ink;ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(cx+4,yt-2);ctx.lineTo(cx+4,yt-ry+2);ctx.stroke();
+  lab('H3 subunit',cx+rx+22,yt-ry-30,{s:14,w:700});lead(cx+rx+18,yt-ry-26,cx+rx/2+14,yt-16);
+  lab('(2 copies in the octamer)',cx+rx+22,yt-ry-14,{s:11,c:mute});
+  // DNA gyres: front halves of two turns, two strands each
+  [[286],[338]].forEach(([y])=>{
+    for(const [k,c,off] of [[0,blue,-3.5],[1,ink,3.5]]){
+      ctx.strokeStyle=c;ctx.lineWidth=5.5;ctx.beginPath();ctx.ellipse(cx,y+off,rx+6,ry,0,0,Math.PI);ctx.stroke();
+    }});
+  // linker DNA tails
+  ctx.lineWidth=5.5;ctx.strokeStyle=blue;ctx.beginPath();ctx.moveTo(cx-rx-6,290);ctx.lineTo(60,262);ctx.stroke();
+  ctx.strokeStyle=ink;ctx.beginPath();ctx.moveTo(cx-rx-6,297);ctx.lineTo(60,269);ctx.stroke();
+  ctx.strokeStyle=blue;ctx.beginPath();ctx.moveTo(cx+rx+6,338);ctx.lineTo(380,372);ctx.stroke();
+  ctx.strokeStyle=ink;ctx.beginPath();ctx.moveTo(cx+rx+6,345);ctx.lineTo(380,379);ctx.stroke();
+  // ---- H3 tail ----
+  ctx.strokeStyle=ink;ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);P.forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();
+  const seq='ARTKQTARKSTG',R=8,sp=17,K4=walk(P,3*sp+R);
+  // ---- MLL3/4 complex ----
+  const off=lerp(300,84,u1)*(1-u4)+u4*320+(1-u4)*lerp(0,0,0);
+  const dy=lerp(-60,0,u1)*(1-u4)+u4*-70;
+  const Cx=K4.x+lerp(84+ (1-u1)*300,84,u2)*(1-u4)+u4*(84+330),Cy=K4.y+(1-u1)*-60*(1-u4)+u4*-80;
+  const calpha=clamp(1,0,1);
+  ctx.save();ctx.globalAlpha=1-clamp((u4-.6)/.4,0,1);
+  const lobes=[[0,0,62,blue],[40,-52,40,blue],[46,50,44,blue2],[-6,-84,30,blue2],[78,-4,34,blue2]];
+  lobes.forEach(([x,y,r,c])=>{ctx.fillStyle=c;ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(Cx+x,Cy+y,r,0,6.283);ctx.fill();ctx.stroke()});
+  // SET lobe (yellow), faces the tail
+  const sx=Cx-60,sy=Cy,glow=bind*(1-clamp((T-15.5)/1.5,0,1));
+  if(glow>.02){ctx.fillStyle=yel;ctx.globalAlpha=(1-clamp((u4-.6)/.4,0,1))*.28*glow;ctx.beginPath();ctx.arc(sx,sy,34,0,6.283);ctx.fill();ctx.globalAlpha=1-clamp((u4-.6)/.4,0,1)}
+  ctx.fillStyle=yel;ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(sx,sy,22,0,6.283);ctx.fill();ctx.stroke();
+  lab('SET',sx,sy+4,{a:'center',s:11,w:700,c:'#161616'});
+  lab('MLL3/MLL4 complex',Cx+10,Cy+120,{a:'center',s:14,w:600});
+  lab('(KMT2C / KMT2D)',Cx+10,Cy+137,{a:'center',s:12,c:mute});
+  // SAM donor
+  const samX=Cx-16,samY=Cy-98;
+  if(T>=9.6&&T<18){const sa=clamp((T-9.6)/.8,0,1);ctx.globalAlpha*=sa;ctx.fillStyle=bg;ctx.strokeStyle=ink;ctx.lineWidth=1.4;ctx.beginPath();ctx.roundRect(samX-24,samY-12,48,24,6);ctx.fill();ctx.stroke();lab('SAM',samX,samY+4,{a:'center',s:12,w:600});}
+  ctx.restore();
+  // methyl transfer
+  const mm=clamp((T-11)/2,0,1);
+  if(T>=10.6&&T<13.2){const e=ease(mm),mx=lerp(samX+30,K4.x,e),my=lerp(samY,K4.y,e)-Math.sin(e*Math.PI)*18;
+    ctx.fillStyle=yel;ctx.strokeStyle=ink;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(mx,my,8,0,6.283);ctx.fill();ctx.stroke();lab('CH3',mx,my-13,{a:'center',s:11,w:700});}
+  // beads (residues 1..12 from tip)
+  for(let i=0;i<12;i++){
+    const p=walk(P,i*sp+R),isK=(i===3);
+    const fill=(isK&&me)?yel:bg;
+    ctx.fillStyle=fill;ctx.strokeStyle=ink;ctx.lineWidth=isK?2.2:1.4;ctx.beginPath();ctx.arc(p.x,p.y,R,0,6.283);ctx.fill();ctx.stroke();
+    lab(seq[i],p.x,p.y+3.5,{a:'center',s:10,w:700});
+  }
+  // ---- labels ----
+  lab('Histone octamer',cx-60,yt-ry-34,{a:'center',s:14,w:600});lead(cx-60,yt-ry-28,cx-50,yt-ry+4);
+  lab('DNA',24,236,{s:14,w:600,c:blue});lead(48,242,70,256);
+  lab('H3 tail',B.x+34,B.y+26,{s:14,w:600});lead(B.x+32,B.y+20,B.x+22,B.y-4);
+  const kp=K4,ka=T<1.2?T/1.2:1;
+  ctx.save();ctx.globalAlpha=ka;
+  lab(me?'K4 + me1':'K4 (lysine 4)',kp.x-6,kp.y-40,{a:'center',s:13,w:700});lead(kp.x-6,kp.y-34,kp.x,kp.y-12);
+  ctx.restore();
+  if(me){ctx.save();ctx.globalAlpha=clamp((T-13.2)/.8,0,1);lab('H3K4me1',cx,420,{a:'center',s:18,w:700});lab('histone H3, lysine 4, one methyl group',cx,440,{a:'center',s:12,c:mute});ctx.restore()}
+  else{lab('Nucleosome',cx,420,{a:'center',s:18,w:700});lab('H3 tail with K4 sticking out',cx,440,{a:'center',s:12,c:mute})}
+  // reader protein
+  const u5=ease(clamp((T-20)/3.5,0,1));
+  if(T>=20){const rx0=lerp(K4.x+250,K4.x+44,u5),ry0=lerp(K4.y-110,K4.y-8,u5);
+    ctx.fillStyle='#8c8c88';ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(rx0,ry0,38,27,0,0,6.283);ctx.fill();ctx.stroke();
+    ctx.fillStyle=yel;ctx.beginPath();ctx.arc(rx0-30,ry0,9,0,6.283);ctx.fill();ctx.stroke();
+    lab('Reader',rx0+8,ry0+4,{a:'center',s:12,w:700,c:'#fff'});
+    lab('Chromatin-associated',rx0+30,ry0+50,{a:'center',s:13,w:600});lab('protein (reader)',rx0+30,ry0+66,{a:'center',s:13,w:600});}
+}
+
+function sceneB(T){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),mute=col('--mute'),bg=col('--bg');
+  ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,900,520);ctx.lineCap='round';ctx.lineJoin='round';
+  const s=ease(clamp((T-31)/6,0,1)),ra=ease(clamp((T-27)/3,0,1));
+  const base=i=>110+i*112,Y=290;
+  const X=i=>i<3?base(i)-26*s:i===3?base(i):base(i)+74*s;
+  {const gx=(X(3)+X(4))/2,z=lerp(1,2.4,ease(clamp((T-38)/3.5,0,1)));ctx.translate(gx,Y);ctx.scale(z,z);ctx.translate(-gx,-Y)}
+  ctx.lineWidth=5;ctx.strokeStyle=blue;ctx.beginPath();ctx.moveTo(30,Y-3);ctx.lineTo(870,Y-3);ctx.stroke();
+  ctx.strokeStyle=ink;ctx.beginPath();ctx.moveTo(30,Y+4);ctx.lineTo(870,Y+4);ctx.stroke();
+  for(let i=0;i<7;i++){const x=X(i);
+    ctx.fillStyle=col('--panel');ctx.strokeStyle=ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,Y,36,0,6.283);ctx.fill();ctx.stroke();
+    [[-9,-9,yel],[9,-9,yel2],[9,9,blue2],[-9,9,blue]].forEach(([dx,dy,c])=>{ctx.fillStyle=c;ctx.strokeStyle=ink;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x+dx,Y+dy,8,0,6.283);ctx.fill();ctx.stroke()});
+  }
+  // me1 mark on marked nucleosome
+  const mx=X(3);ctx.fillStyle=yel;ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(mx+30,Y-40,11,0,6.283);ctx.fill();ctx.stroke();lab('me1',mx+30,Y-37,{a:'center',s:9,w:700,c:'#161616'});
+  // reader on the mark
+  ctx.fillStyle='#8c8c88';ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(mx+52,Y-66,34,24,0,0,6.283);ctx.fill();ctx.stroke();
+  ctx.fillStyle=yel;ctx.beginPath();ctx.arc(mx+28,Y-52,8,0,6.283);ctx.fill();ctx.stroke();lab('Reader',mx+56,Y-62,{a:'center',s:11,w:700,c:'#fff'});
+  lab('Reader bound to H3K4me1',mx+52,Y-104,{a:'center',s:13,w:600});lead(mx+52,Y-98,mx+52,Y-92);
+  // remodeller
+  if(ra>0){const rxp=lerp(X(4)+260,X(4)+30,ra)+ (T>31?0:0),ryp=Y+120;
+    ctx.save();ctx.globalAlpha=ra;
+    [[0,0,46,blue],[-42,-8,30,blue2],[40,-14,32,blue2],[8,40,26,blue2]].forEach(([dx,dy,r,c])=>{ctx.fillStyle=c;ctx.strokeStyle=ink;ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(rxp+dx,ryp+dy,r,0,6.283);ctx.fill();ctx.stroke()});
+    lab('Chromatin remodeller',rxp,ryp+84,{a:'center',s:14,w:600});
+    if(s>0.02&&s<0.98){ctx.strokeStyle=ink;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(rxp+60,ryp-34);ctx.lineTo(rxp+104,ryp-34);ctx.moveTo(rxp+94,ryp-42);ctx.lineTo(rxp+104,ryp-34);ctx.lineTo(rxp+94,ryp-26);ctx.stroke()}
+    ctx.restore()}
+  // open region
+  if(s>0.5){const a=clamp((s-.5)/.5,0,1),x1=X(3)+40,x2=X(4)-40;ctx.save();ctx.globalAlpha=a;
+    ctx.strokeStyle=yel;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x1,Y+30);ctx.lineTo(x1,Y+38);ctx.lineTo(x2,Y+38);ctx.lineTo(x2,Y+30);ctx.stroke();
+    lab('Open, accessible DNA',(x1+x2)/2,Y+60,{a:'center',s:14,w:700});ctx.restore()}
+}
+function sceneC(T){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),mute=col('--mute');
+  ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,900,520);ctx.lineCap='round';ctx.lineJoin='round';
+  const Y=270,A=44,k=2*Math.PI/110,ph=T*0.9,x0=50,x1=850;
+  const ya=x=>Y+A*Math.sin(k*x+ph),yb=x=>Y-A*Math.sin(k*x+ph),za=x=>Math.cos(k*x+ph);
+  const strand=(f,c,front)=>{for(let x=x0+2;x<=x1;x+=2){const z=za(x)*(c===blue?1:-1);if((z>=0)!==front)continue;ctx.strokeStyle=c;ctx.lineWidth=9+3*z;ctx.beginPath();ctx.moveTo(x-2,f(x-2));ctx.lineTo(x,f(x));ctx.stroke()}};
+  strand(ya,blue,false);strand(yb,ink,false);
+  const pr=[[yel,blue2],[blue2,yel],[yel2,blue],[blue,yel2]];
+  for(let x=x0+8,i=0;x<=x1;x+=14,i++){const a=ya(x),b=yb(x),c=pr[(i*7+3)%4];
+    ctx.lineWidth=4;ctx.strokeStyle=c[0];ctx.beginPath();ctx.moveTo(x,a);ctx.lineTo(x,(a+b)/2);ctx.stroke();
+    ctx.strokeStyle=c[1];ctx.beginPath();ctx.moveTo(x,(a+b)/2);ctx.lineTo(x,b);ctx.stroke()}
+  strand(ya,blue,true);strand(yb,ink,true);
+  ctx.strokeStyle=yel;ctx.lineWidth=3.5;ctx.beginPath();ctx.moveTo(x0,Y+A+44);ctx.lineTo(x0,Y+A+52);ctx.lineTo(x1,Y+A+52);ctx.lineTo(x1,Y+A+44);ctx.stroke();
+  lab('Open, accessible DNA',450,70,{a:'center',s:22,w:700});
+  lab('No histones here: the base sequence is exposed',450,96,{a:'center',s:14,c:mute});
+  lab('Transcription proteins can bind to this DNA',450,Y+A+82,{a:'center',s:15,w:600});
+}
+function sceneD(T){
+  const ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),mute=col('--mute'),panel=col('--panel'),bg=col('--bg');
+  ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,900,520);ctx.lineCap='round';ctx.lineJoin='round';
+  const Y=330,H=34,e0=90,e1=250,p0=520,p1=640,g1=840;
+  const b=ease(clamp((T-70)/5,0,1)),th=Math.PI*b,cs=Math.cos(th),sn=Math.sin(th);
+  const cA={x:lerp(140,560,b),y:lerp(330,162,b)},yC=40*b;
+  const wp=(x,y)=>{const dx=x-140,dy=y-330;return {x:cA.x+dx*cs-dy*sn,y:cA.y+dx*sn+dy*cs}};
+  const inA=f=>{ctx.save();ctx.translate(cA.x,cA.y);ctx.rotate(th);ctx.translate(-140,-330);f();ctx.restore()};
+  const inC=f=>{ctx.save();ctx.translate(0,yC);f();ctx.restore()};
+  // DNA path
+  const A0=wp(30,330),A1=wp(250,330),C0={x:520,y:Y+yC},dxk=lerp(90,-130,b);
+  const path=()=>{ctx.beginPath();ctx.moveTo(A0.x,A0.y);ctx.lineTo(A1.x,A1.y);ctx.bezierCurveTo(A1.x+dxk,A1.y,C0.x+dxk,C0.y,C0.x,C0.y);ctx.lineTo(870,Y+yC)};
+  ctx.strokeStyle=ink;ctx.lineWidth=30;path();ctx.stroke();ctx.strokeStyle=bg;ctx.lineWidth=26;path();ctx.stroke();
+  const seg=(x0,x1,c)=>{ctx.fillStyle=c;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.fillRect(x0,Y-H/2,x1-x0,H);ctx.strokeRect(x0,Y-H/2,x1-x0,H)};
+  inA(()=>seg(e0,e1,yel2));inC(()=>{seg(p0,p1,yel);seg(p1,g1,blue)});
+  const tp=(t,x,y,c)=>lab(t,x,y,{a:'center',s:15,w:700,c});
+  {const w=wp((e0+e1)/2,Y);tp('Enhancer',w.x,w.y+5,'#161616')}
+  tp('Promoter',(p0+p1)/2,Y+yC+5,'#161616');tp('Gene X',(p1+g1)/2,Y+yC+5,'#fff');
+  inC(()=>{ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p1,Y-H/2-4);ctx.lineTo(p1,Y-H/2-26);ctx.lineTo(p1+34,Y-H/2-26);ctx.stroke();ctx.beginPath();ctx.moveTo(p1+28,Y-H/2-32);ctx.lineTo(p1+36,Y-H/2-26);ctx.lineTo(p1+28,Y-H/2-20);ctx.stroke()});
+  // H3K4me1 mark
+  inA(()=>{ctx.fillStyle=yel;ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(170,Y+H/2+22,10,0,6.283);ctx.fill();ctx.stroke()});
+  {const w=wp(170,Y+H/2+25);lab('me1',w.x,w.y+(b>0.5?-3:0),{a:'center',s:8,w:700,c:'#161616'})}
+  const land=(t0,len)=>ease(clamp((T-t0)/len,0,1));
+  const shift=140*ease(clamp((T-91)/13,0,1)),a=land(56,2.5),g=land(61,2.5),pol=land(63.5,2.5),ay=lerp(-120,0,a),gy=lerp(-120,0,g),py=lerp(-120,0,pol);
+  const bx=e0+20,by=Y-H/2,gx=p0+16,gby=Y-H/2;
+  const fadeOld=1-clamp(b*6,0,1);
+  if(a>0)inA(()=>{ctx.save();ctx.globalAlpha=a;
+    ctx.fillStyle=blue;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(bx,by+ay);ctx.lineTo(bx+34,by+ay);ctx.lineTo(bx+17,by+ay-50);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=yel;ctx.fillRect(bx+40,by+ay-42,42,42);ctx.strokeRect(bx+40,by+ay-42,42,42);ctx.restore()});
+  inC(()=>{
+    if(g>0){ctx.save();ctx.globalAlpha=g;
+      ctx.fillStyle=blue2;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,gby+gy);ctx.lineTo(gx+30,gby+gy);ctx.lineTo(gx+15,gby+gy-42);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle=blue;ctx.beginPath();ctx.arc(gx+46,gby+gy-18,18,0,6.283);ctx.fill();ctx.stroke();ctx.restore()}
+    if(pol>0){ctx.save();ctx.globalAlpha=pol;
+      const pg=ctx.createLinearGradient(gx+60+shift,0,gx+170+shift,0);pg.addColorStop(0,yel2);pg.addColorStop(1,blue2);
+      ctx.fillStyle=pg;ctx.strokeStyle=(T>=82?yel:ink);ctx.lineWidth=(T>=82?4:2);ctx.beginPath();ctx.ellipse(gx+112+shift,gby+py-24,56,26,0,0,6.283);ctx.fill();ctx.stroke();ctx.restore()}});
+  // old labels
+  ctx.save();ctx.globalAlpha=fadeOld;
+  lab('H3K4me1, written by MLL3/MLL4',170,Y+H/2+52,{a:'center',s:12,c:mute});
+  if(a>.95){lab('Activators',bx+41,Y-H/2-96,{a:'center',s:15,w:700});lead(bx+41,Y-H/2-88,bx+41,Y-H/2-62)}
+  if(g>.95){lab('General transcription',gx-12,Y-H/2-120,{a:'center',s:14,w:700});lab('factors',gx-12,Y-H/2-103,{a:'center',s:14,w:700});lead(gx-8,Y-H/2-96,gx+8,Y-H/2-52)}
+  if(pol>.95){lab('RNA polymerase',gx+170,Y-H/2-96,{a:'center',s:14,w:700});lead(gx+160,Y-H/2-88,gx+138,Y-H/2-56)}
+  if(T>=66)lab('Gene X can now be transcribed',450,452,{a:'center',s:18,w:700});
+  ctx.restore();
+  // title
+  ctx.save();ctx.globalAlpha=ease(clamp((T-51)/1.5,0,1));lab('One gene: Gene X',450,70,{a:'center',s:22,w:700});
+  lab(b>0.5?'the enhancer loops over to the promoter':'enhancer, promoter and gene along the same DNA',450,96,{a:'center',s:14,c:mute});ctx.restore();
+  // mediator
+  const md=ease(clamp((T-75.5)/2.5,0,1));
+  if(md>0){ctx.save();ctx.globalAlpha=md;
+    const mc=[[510,250],[546,264],[578,250],[560,292]],mg=col('--panel')==='#f4f4f3'?'#d9d9d5':'#4a4a47';
+    mc.forEach(([x,y])=>{ctx.fillStyle=mg;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y+(1-md)*-10,21,0,6.283);ctx.fill();ctx.stroke()});
+    ctx.restore()}
+  // pulses relaying the signal
+  if(T>=82&&T<90){for(let k=0;k<3;k++){const q=(((T-82)*0.45)+k/3)%1;
+    const P=[[548,226],[532,250],[552,274],[558,308]],P2=[[558,308],[600,312],[640,318]];
+    const pts=q<.6?(()=>{const u=q/.6*(P.length-1),i=Math.min(P.length-2,Math.floor(u)),f=u-i;return [lerp(P[i][0],P[i+1][0],f),lerp(P[i][1],P[i+1][1],f)]})():(()=>{const u=(q-.6)/.4*(P2.length-1),i=Math.min(P2.length-2,Math.floor(u)),f=u-i;return [lerp(P2[i][0],P2[i+1][0],f),lerp(P2[i][1],P2[i+1][1],f)]})();
+    ctx.fillStyle=yel;ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(pts[0],pts[1],6,0,6.283);ctx.fill();ctx.stroke()}}
+  // new labels
+  const nl=ease(clamp((T-77)/1.5,0,1));
+  if(nl>0){ctx.save();ctx.globalAlpha=nl;
+    lab('DNA loop',60,255,{s:17,w:700});lead(140,250,196,250);
+    lab('Activators',720,118,{a:'center',s:15,w:700});lead(690,126,596,200);
+    lab('Mediator proteins',745,248,{a:'center',s:16,w:700});lead(662,244,602,244);
+    if(T<90){lab('RNA polymerase',800,306,{a:'center',s:14,w:700});lead(738,303,706,306)}
+    lab('General transcription factors',230,452,{a:'center',s:14,w:700});lead(330,444,520,350);
+    ctx.restore()}
+  if(T>=88&&T<91){ctx.save();ctx.globalAlpha=ease(clamp((T-88)/1.2,0,1))*(1-clamp((T-90)/1,0,1));lab('Mediator relays the activators’ signal to the promoter',450,500,{a:'center',s:16,w:700});ctx.restore()}
+  if(T>=90){
+    const xp=520+16+112+shift,yD=330+yC;
+    const L=clamp((T-91)/13,0,1)*150+(T>=91?18:0),al=ease(clamp((T-90)/1.5,0,1));
+    ctx.save();ctx.globalAlpha=al;
+    lab('RNA polymerase',xp+4,yD-72,{a:'center',s:14,w:700});
+    if(L>2){const pts=[[xp,yD+13],[xp,yD+30]];for(let q=0;q<=L;q+=3)pts.push([xp-q,yD+36+7*Math.sin(q*0.11+T*2)]);
+      const stroke=(c,w)=>{ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke()};
+      stroke(ink,8);stroke(yel,4.5);
+      lab('RNA',xp-L-12,yD+44,{a:'right',s:15,w:700})}
+    ctx.restore();
+    if(T>=104){ctx.save();ctx.globalAlpha=ease(clamp((T-104)/1.2,0,1));lab('Gene X is being transcribed into RNA',450,500,{a:'center',s:16,w:700});ctx.restore()}
+  }
+}
+function draw(){
+  const T=curT(),f=ease(clamp((T-24)/1.8,0,1));
+  ctx=octx;sceneA(T);ctx=mainctx;
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,1800,1040);
+  if(f<1){ctx.globalAlpha=1-f;ctx.drawImage(oc,0,0);ctx.globalAlpha=1}
+  const fc=ease(clamp((T-41)/1.5,0,1)),fb=1-clamp((T-39.8)/1.0,0,1);
+  if(f>0&&fb>0){ctx=octx;sceneB(T);ctx=mainctx;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=f*fb;ctx.drawImage(oc,0,0);ctx.globalAlpha=1}
+  const fd=ease(clamp((T-50)/1.8,0,1));
+  if(fc>0&&fd<1){ctx=octx;sceneC(T);ctx=mainctx;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=fc*(1-fd);ctx.drawImage(oc,0,0);ctx.globalAlpha=1}
+  if(fd>0){ctx=octx;sceneD(T);ctx=mainctx;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=fd;ctx.drawImage(oc,0,0);ctx.globalAlpha=1}
+  ctx.setTransform(2,0,0,2,0,0);
+  // caption
+  const idx=T<3?0:T<7?1:T<11?2:T<14?3:T<20?4:T<27?5:T<34?6:T<40?7:T<50?8:T<56?9:T<61?10:T<66?11:T<70?12:T<76?13:T<82?14:T<90?15:T<106?16:17;
+  if(idx!==lastCap){lastCap=idx;$('cap').innerHTML='<h2>'+CAP[idx][0]+'</h2><p>'+CAP[idx][1]+'</p>'}
+  $('pb').style.width=((T-RS)/SPAN*100)+'%';
+requestAnimationFrame(draw);
+}
+$('pp').onclick=()=>{if(playing){pausedT=curT();playing=false;$('pp').textContent='Play'}else{t0=performance.now()-pausedT*1000;playing=true;$('pp').textContent='Pause'}};
+$('rs').onclick=()=>{t0=performance.now();pausedT=RS;playing=true;$('pp').textContent='Pause'};
+window.__setT=x=>{playing=false;pausedT=x};
+requestAnimationFrame(draw);
+</script>

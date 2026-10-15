@@ -1,0 +1,94 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gene is repressed</title>
+<style>
+:root{--bg:#ffffff;--panel:#f4f4f3;--ink:#161616;--mute:#5c5c5c;--line:#d4d4d2;--blue:#1f5a9e;--blue2:#6fa0d6;--yel:#e3a800;--yel2:#f3cf63;--sans:Arial,sans-serif;--serif:Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--panel:#1c1c1b;--ink:#ececea;--mute:#a0a09c;--line:#363634;--blue:#5a9be0;--blue2:#9cc3ee;--yel:#f0b82a;--yel2:#f6d77e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121212;--panel:#1c1c1b;--ink:#ececea;--mute:#a0a09c;--line:#363634;--blue:#5a9be0;--blue2:#9cc3ee;--yel:#f0b82a;--yel2:#f6d77e;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--serif);padding:12px 16px 20px}
+.wrap{max-width:920px;margin:0 auto}
+.stage{background:var(--panel);border:1px solid var(--line)}
+canvas{display:block;width:100%;height:auto}
+.cap{margin:14px 0 8px;min-height:92px}.cap h2{font:600 17px/1.3 var(--sans);margin:0 0 4px}.cap p{margin:0}
+.ctl{display:flex;gap:8px;align-items:center}
+button{font:500 13px var(--sans);padding:8px 14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.go{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar{flex:1;height:4px;background:var(--line);margin-left:10px}.bar i{display:block;height:100%;width:0;background:var(--blue)}
+</style>
+<div class="wrap">
+<div class="stage"><canvas id="cv" width="1800" height="1040" role="img" aria-label="Animation: the MLL3/MLL4 complex binds the H3 tail of a nucleosome and adds a methyl group to lysine 4"></canvas></div>
+<div class="cap" id="cap"></div>
+<div class="ctl"><button id="pp" class="go">Pause</button><button id="rs">Restart</button><div class="bar"><i id="pb"></i></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),cv=$('cv'),ctx=cv.getContext('2d');
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const LOOP=34;
+const CAP=[
+['Gene X without MLL3/MLL4','If MLL3 and MLL4 are missing, the enhancer of Gene X does not receive the H3K4me1 mark. The enhancer DNA itself is free, as before.'],
+['Repressors bind','Repressors are proteins that bind the enhancer instead of activators. They keep the enhancer switched off, so it does not recruit what comes next.'],
+['No loop, no mediator','With repressors on the enhancer, Mediator is not recruited, so the enhancer is not brought to the promoter. The DNA stays straight.'],
+['The promoter stays idle','General transcription factors and RNA polymerase are not recruited to the promoter, so they cannot assemble.'],
+['Gene X is repressed','No RNA is made from Gene X. The gene stays off.']];
+let t0=performance.now(),playing=true,pausedT=0,lastCap=-1;
+function curT(){return playing?((performance.now()-t0)/1000)%LOOP:pausedT}
+function lab(txt,x,y,o={}){ctx.font=(o.w||500)+' '+(o.s||13)+"px 'IBM Plex Sans',Arial,sans-serif";ctx.textAlign=o.a||'left';ctx.fillStyle=o.c||col('--ink');ctx.fillText(txt,x,y)}
+function lead(x1,y1,x2,y2){ctx.strokeStyle=col('--ink');ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function draw(){
+  const T=curT(),ink=col('--ink'),blue=col('--blue'),blue2=col('--blue2'),yel=col('--yel'),yel2=col('--yel2'),mute=col('--mute'),bg=col('--bg'),panel=col('--panel');
+  ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,900,520);ctx.lineCap='round';ctx.lineJoin='round';
+  const Y=320,H=34,e0=90,e1=250,p0=520,p1=640,g1=840;
+  ctx.fillStyle=bg;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(30,Y-H/2+4,840,H-8,10);ctx.fill();ctx.stroke();
+  const seg=(x0,x1,c,t,tc)=>{ctx.fillStyle=c;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.fillRect(x0,Y-H/2,x1-x0,H);ctx.strokeRect(x0,Y-H/2,x1-x0,H);lab(t,(x0+x1)/2,Y+5,{a:'center',s:15,w:700,c:tc})};
+  seg(e0,e1,yel2,'Enhancer','#161616');seg(p0,p1,yel,'Promoter','#161616');seg(p1,g1,blue,'Gene X','#fff');
+  ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p1,Y-H/2-4);ctx.lineTo(p1,Y-H/2-26);ctx.lineTo(p1+34,Y-H/2-26);ctx.stroke();ctx.beginPath();ctx.moveTo(p1+28,Y-H/2-32);ctx.lineTo(p1+36,Y-H/2-26);ctx.lineTo(p1+28,Y-H/2-20);ctx.stroke();
+  // nucleosomes on the enhancer (and a couple neighbours)
+  const nuc=(x,y,r)=>{ctx.fillStyle=panel;ctx.strokeStyle=ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,r,0,6.283);ctx.fill();ctx.stroke();
+    [[-.25,-.25,yel],[.25,-.25,yel2],[.25,.25,blue2],[-.25,.25,blue]].forEach(([dx,dy,c])=>{ctx.fillStyle=c;ctx.strokeStyle=ink;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x+dx*r,y+dy*r,r*.22,0,6.283);ctx.fill();ctx.stroke()})};
+  
+  // promoter nucleosome too? keep promoter open
+  // title
+  lab('Gene X, without MLL3/MLL4',450,62,{a:'center',s:22,w:700});
+  lab('free enhancer, but no H3K4me1',450,88,{a:'center',s:14,c:mute});
+  // "no mark" label
+  const a0=ease(clamp((T-0.5)/1.5,0,1));
+  ctx.save();ctx.globalAlpha=a0;ctx.strokeStyle=mute;ctx.lineWidth=1.8;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(170,Y+44,10,0,6.283);ctx.stroke();ctx.setLineDash([]);
+  lab('no H3K4me1 mark',170,Y+74,{a:'center',s:12,c:mute});ctx.restore();
+  // activators land on the open enhancer and stay
+  if(T>=3){const off=lerp(130,0,ease(clamp((T-3)/3,0,1))),bx=e0+20,by2=Y-H/2-off,al=Math.min(1,(T-3)*2);
+    ctx.save();ctx.globalAlpha=al;
+    ctx.fillStyle='#8c8c88';ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(bx,by2);ctx.lineTo(bx+34,by2);ctx.lineTo(bx+17,by2-50);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#5c5c5c';ctx.fillRect(bx+40,by2-42,42,42);ctx.strokeRect(bx+40,by2-42,42,42);ctx.restore();
+    if(T>=6)lab('Repressors',bx+41,Y-H/2-72,{a:'center',s:14,w:700})}
+  // straight DNA label
+  if(T>=10){const a=ease(clamp((T-10)/1.5,0,1));ctx.save();ctx.globalAlpha=a;
+    lab('No Mediator, no DNA loop',380,Y-96,{a:'center',s:15,w:700});
+    ctx.strokeStyle=mute;ctx.lineWidth=2;ctx.setLineDash([6,5]);ctx.beginPath();ctx.moveTo(250,Y-70);ctx.bezierCurveTo(300,Y-190,470,Y-190,520,Y-70);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle=ink;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(366,Y-150);ctx.lineTo(394,Y-122);ctx.moveTo(394,Y-150);ctx.lineTo(366,Y-122);ctx.stroke();
+    ctx.restore()}
+  // GTFs and Pol drift in and leave
+  if(T>=14){const q=clamp((T-14)/10,0,1),ph=Math.sin(q*Math.PI),dist=lerp(150,32,ph),al=Math.min(1,q*6)*(1-clamp((q-.92)/.08,0,1));
+    ctx.save();ctx.globalAlpha=al;
+    const gx=p0+16,gy=Y-H/2-dist;
+    ctx.fillStyle=blue2;ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+30,gy);ctx.lineTo(gx+15,gy-42);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=blue;ctx.beginPath();ctx.arc(gx+46,gy-18,18,0,6.283);ctx.fill();ctx.stroke();
+    const pg=ctx.createLinearGradient(gx+60,0,gx+170,0);pg.addColorStop(0,yel2);pg.addColorStop(1,blue2);
+    ctx.fillStyle=pg;ctx.beginPath();ctx.ellipse(gx+112,gy-24+8*Math.sin(T*3),56,26,0,0,6.283);ctx.fill();ctx.stroke();
+    ctx.restore();
+    if(dist<45){ctx.save();ctx.globalAlpha=al;ctx.strokeStyle=ink;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(gx+84,Y-H/2-52);ctx.lineTo(gx+120,Y-H/2-22);ctx.moveTo(gx+120,Y-H/2-52);ctx.lineTo(gx+84,Y-H/2-22);ctx.stroke();ctx.restore()}
+    if(al>0.05){lab('RNA polymerase and',gx+90,gy-86,{a:'center',s:14,w:700});lab('general transcription factors',gx+90,gy-69,{a:'center',s:14,w:700})}}
+  // final
+  if(T>=24){const a=ease(clamp((T-24)/1.5,0,1));ctx.save();ctx.globalAlpha=a;
+    ctx.strokeStyle=mute;ctx.lineWidth=2.5;ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(p1+4,Y+34);ctx.lineTo(g1-4,Y+34);ctx.stroke();ctx.setLineDash([]);
+    lab('No RNA made',(p1+g1)/2,Y+60,{a:'center',s:15,w:700});
+    lab('Gene X stays off',450,470,{a:'center',s:22,w:700});ctx.restore()}
+  const idx=T<4?0:T<10?1:T<14?2:T<24?3:4;
+  if(idx!==lastCap){lastCap=idx;$('cap').innerHTML='<h2>'+CAP[idx][0]+'</h2><p>'+CAP[idx][1]+'</p>'}
+  $('pb').style.width=(T/LOOP*100)+'%';
+  requestAnimationFrame(draw);
+}
+$('pp').onclick=()=>{if(playing){pausedT=curT();playing=false;$('pp').textContent='Play'}else{t0=performance.now()-pausedT*1000;playing=true;$('pp').textContent='Pause'}};
+$('rs').onclick=()=>{t0=performance.now();pausedT=0;playing=true;$('pp').textContent='Pause'};
+window.__setT=x=>{playing=false;pausedT=x};
+requestAnimationFrame(draw);
+</script>
